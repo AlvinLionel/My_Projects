@@ -5,6 +5,8 @@ import type { RsaAlgorithm, RsaEncryptionResult } from "./rsa";
 import type { KeyExchangeAlgorithm } from "./keyExchange";
 import type { ResourceType } from "./resourceCrypto";
 
+export type KeyDerivationScheme = "HKDF-SHA-256";
+
 const PACKAGE_PREFIX = "LBX1";
 const SUPPORTED_ALGORITHMS: SymmetricAlgorithm[] = [
     "AES-256-GCM",
@@ -22,6 +24,7 @@ interface CommonPackageFields {
     iv: string;
     ciphertext: string;
     keyExchangeAlgorithm?: KeyExchangeAlgorithm;
+    keyDerivation?: KeyDerivationScheme;
     senderPublicKey?: string;
     folderName?: string;
     folderFileCount?: number;
@@ -49,6 +52,7 @@ export interface UnpackagedSymmetricPackage {
     iv: Uint8Array<ArrayBuffer>;
     ciphertext: Uint8Array<ArrayBuffer>;
     keyExchangeAlgorithm?: KeyExchangeAlgorithm;
+    keyDerivation?: KeyDerivationScheme;
     senderPublicKey?: string;
     folderName?: string;
     folderFileCount?: number;
@@ -64,6 +68,7 @@ export interface UnpackagedRsaPackage {
     ciphertext: Uint8Array<ArrayBuffer>;
     wrappedKey: Uint8Array<ArrayBuffer>;
     keyExchangeAlgorithm?: KeyExchangeAlgorithm;
+    keyDerivation?: KeyDerivationScheme;
     senderPublicKey?: string;
     folderName?: string;
     folderFileCount?: number;
@@ -77,6 +82,7 @@ export interface ResourceMetadata {
     folderFileCount?: number;
     folderCount?: number;
     keyExchangeAlgorithm?: KeyExchangeAlgorithm;
+    keyDerivation?: KeyDerivationScheme;
     senderPublicKey?: string;
 }
 
@@ -105,6 +111,7 @@ export function createPackage(result: EncryptionResult, metadata: ResourceMetada
         filename: metadata.filename,
         mimeType: metadata.mimeType,
         keyExchangeAlgorithm: metadata.keyExchangeAlgorithm,
+        keyDerivation: metadata.keyDerivation,
         senderPublicKey: metadata.senderPublicKey,
         folderName: metadata.folderName,
         folderFileCount: metadata.folderFileCount,
@@ -174,6 +181,7 @@ export function unpackage(encryptedPackage: string): UnpackagedSymmetricPackage 
             iv: base64ToBytes(packageData.iv),
             ciphertext: base64ToBytes(packageData.ciphertext),
             keyExchangeAlgorithm: packageData.keyExchangeAlgorithm,
+            keyDerivation: packageData.keyDerivation,
             senderPublicKey: packageData.senderPublicKey,
             folderName: packageData.folderName,
             folderFileCount: packageData.folderFileCount,
@@ -190,6 +198,7 @@ export function unpackage(encryptedPackage: string): UnpackagedSymmetricPackage 
         ciphertext: base64ToBytes(packageData.ciphertext),
         wrappedKey: base64ToBytes(packageData.wrappedKey),
         keyExchangeAlgorithm: packageData.keyExchangeAlgorithm,
+        keyDerivation: packageData.keyDerivation,
         senderPublicKey: packageData.senderPublicKey,
         folderName: packageData.folderName,
         folderFileCount: packageData.folderFileCount,

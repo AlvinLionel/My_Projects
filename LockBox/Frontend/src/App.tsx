@@ -1,9 +1,9 @@
 import "../styles/App.css";
 import { useState } from "react";
-import { encryptText, decryptText } from "../crypto/aes";
+import { encryptText, decryptText, decryptTextWithSharedSecret, encryptTextWithSharedSecret } from "../crypto/aes";
 import { createPackage, createRsaPackage, isPackageValid, unpackage } from "../crypto/package";
 import { CryptoError } from "../crypto/error";
-import { type ResourceType, encryptFile, decryptFile, downloadFile } from "../crypto/resourceCrypto";
+import { type ResourceType, encryptFile, encryptFileWithSharedSecret, decryptFile, decryptFileWithSharedSecret, downloadFile } from "../crypto/resourceCrypto";
 import type { SymmetricAlgorithm } from "../crypto/KeyDerivation";
 import { decryptRsaText, encryptRsaText, generateRsaKeyPair, type RsaAlgorithm } from "../crypto/rsa";
 import { deriveSharedSecret, generateKeyExchangePair, type KeyExchangeAlgorithm } from "../crypto/keyExchange";
@@ -846,15 +846,34 @@ function App() {
                                                 ⚙ Generate Key Pair
                                             </button>
                                         )}
+                                        {mode === "encrypt" ? (
+                                            privateKey && (
+                                                <button
+                                                    type="button"
+                                                    className="secondary-action"
+                                                    onClick={() => downloadPrivateKey(privateKey, selectedAlgorithm as RsaAlgorithm)}>
+                                                    ↓ Download Private Key
+                                                </button>)
+                                        ) : (
+                                            <>
+                                                    <button
+                                                        type="button"
+                                                        className="secondary-action"
+                                                        onClick={() => {
+                                                            document.getElementById("pkey-upload")?.click();
+                                                        }}>
+                                                        Browse Private Key
+                                                    </button>
+                                                <input type="file" id="pkey-upload" hidden accept=".pem"
+                                                    onChange={(event) => {
+                                                        const file = event.target.files?.[0];
+                                                        if (!file) return;
 
-                                        {privateKey && (
-                                            <button
-                                                type="button"
-                                                className="secondary-action"
-                                                onClick={() => downloadPrivateKey(privateKey, selectedAlgorithm as RsaAlgorithm)}
-                                            >
-                                                ↓ Download Private Key
-                                            </button>
+                                                        const reader = new FileReader();
+                                                        reader.onload = () => setPrivateKey(reader.result as string);
+                                                        reader.readAsText(file);
+                                                    }} />
+                                            </>
                                         )}
 
                                         <div className="security-note">
@@ -1228,10 +1247,11 @@ function App() {
                                                             if (selectedResource === "text") {
                                                                 if (selectedAlgorithmConfig?.operation === "key-exchange") {
                                                                     const secret = await deriveSharedSecret(selectedAlgorithm as KeyExchangeAlgorithm, exchangePrivateKey, peerPublicKey);
-                                                                    const result = await encryptText(resourceText, secret, setProcessingStep, "AES-256-GCM");
+                                                                    const result = await encryptTextWithSharedSecret(resourceText, secret, setProcessingStep);
                                                                     setOperationResult(createPackage(result, {
                                                                         resourceType: "text",
                                                                         keyExchangeAlgorithm: selectedAlgorithm as KeyExchangeAlgorithm,
+                                                                        keyDerivation: "HKDF-SHA-256",
                                                                         senderPublicKey: exchangePublicKey,
                                                                     }));
                                                                 } else if (selectedAlgorithmConfig?.keyType === "keypair") {
@@ -1246,15 +1266,20 @@ function App() {
                                                                     setOperationError("Please select a file first.");
                                                                     return;
                                                                 }
-                                                                const encryptionPassword = selectedAlgorithmConfig?.operation === "key-exchange"
-                                                                    ? await deriveSharedSecret(selectedAlgorithm as KeyExchangeAlgorithm, exchangePrivateKey, peerPublicKey)
-                                                                    : inputPassword;
-                                                                const { result, metadata } = await encryptFile(selectedFile, selectedResource, encryptionPassword, setProcessingStep, "AES-256-GCM");
+                                                                const isKeyExchange = selectedAlgorithmConfig?.operation === "key-exchange";
+                                                                const { result, metadata } = isKeyExchange
+                                                                    ? await encryptFileWithSharedSecret(
+                                                                        selectedFile,
+                                                                        selectedResource,
+                                                                        await deriveSharedSecret(selectedAlgorithm as KeyExchangeAlgorithm, exchangePrivateKey, peerPublicKey),
+                                                                        setProcessingStep
+                                                                    )
+                                                                    : await encryptFile(selectedFile, selectedResource, inputPassword, setProcessingStep, "AES-256-GCM");
 
                                                                 const encryptedPackage = createPackage(result, {
                                                                     ...metadata,
                                                                     ...(selectedAlgorithmConfig?.operation === "key-exchange"
-                                                                        ? { keyExchangeAlgorithm: selectedAlgorithm as KeyExchangeAlgorithm, senderPublicKey: exchangePublicKey }
+                                                                        ? { keyExchangeAlgorithm: selectedAlgorithm as KeyExchangeAlgorithm, keyDerivation: "HKDF-SHA-256" as const, senderPublicKey: exchangePublicKey }
                                                                         : {}),
                                                                     ...(selectedResource === "folder" && folderSummary
                                                                         ? { folderName: folderSummary.folderName, folderFileCount: folderSummary.fileCount, folderCount: folderSummary.folderCount }
@@ -1271,7 +1296,9 @@ function App() {
                                                                     setOperationResult(decryptedText);
                                                                 } else if (packageData.keyExchangeAlgorithm && packageData.senderPublicKey) {
                                                                     const secret = await deriveSharedSecret(packageData.keyExchangeAlgorithm, exchangePrivateKey, packageData.senderPublicKey);
-                                                                    const decryptedText = await decryptText(packageData.ciphertext, secret, packageData.salt, packageData.iv, setProcessingStep, packageData.algorithm);
+                                                                    const decryptedText = packageData.keyDerivation === "HKDF-SHA-256"
+                                                                        ? await decryptTextWithSharedSecret(packageData.ciphertext, secret, packageData.salt, packageData.iv, setProcessingStep)
+                                                                        : await decryptText(packageData.ciphertext, secret, packageData.salt, packageData.iv, setProcessingStep, packageData.algorithm);
                                                                     setOperationResult(decryptedText);
                                                                 } else {
                                                                     setProcessingStep(1);
@@ -1290,11 +1317,14 @@ function App() {
                                                                 if ("wrappedKey" in packageData) {
                                                                     throw new CryptoError("INVALID_PACKAGE", "RSA encryption currently supports text resources only.");
                                                                 }
-                                                                const decryptionPassword = packageData.keyExchangeAlgorithm && packageData.senderPublicKey
-                                                                    ? await deriveSharedSecret(packageData.keyExchangeAlgorithm, exchangePrivateKey, packageData.senderPublicKey)
+                                                                const isKeyExchangePackage = !!packageData.keyExchangeAlgorithm && !!packageData.senderPublicKey;
+                                                                const decryptionPassword = isKeyExchangePackage
+                                                                    ? await deriveSharedSecret(packageData.keyExchangeAlgorithm!, exchangePrivateKey, packageData.senderPublicKey!)
                                                                     : inputPassword;
                                                                 setProcessingStep(1);
-                                                                const decryptedFile = await decryptFile(encryptedPackage.trim(), decryptionPassword, setProcessingStep);
+                                                                const decryptedFile = isKeyExchangePackage && packageData.keyDerivation === "HKDF-SHA-256"
+                                                                    ? await decryptFileWithSharedSecret(encryptedPackage.trim(), decryptionPassword, setProcessingStep)
+                                                                    : await decryptFile(encryptedPackage.trim(), decryptionPassword, setProcessingStep);
 
                                                                 setProcessingStep(4);
                                                                 setDecryptedFile(decryptedFile);

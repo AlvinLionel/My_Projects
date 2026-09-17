@@ -131,6 +131,7 @@ button {
 }
 
 /******** INTRO *********/
+
 .workspace {
     position: relative;
     z-index: 1;
@@ -183,6 +184,7 @@ button {
 }
 
 /******** MODES *********/
+
 .mode-selector {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -276,6 +278,7 @@ button {
 }
 
 /******** RESOURCES *********/
+
 .resource-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -373,6 +376,7 @@ button {
 }
 
 /******** TEXT INPUT *********/
+
 .text-input {
     width: 100%;
     height: 265px;
@@ -397,6 +401,7 @@ button {
 }
 
 /******** DROP ZONE *********/
+
 .drop-zone {
     height: 265px;
     display: flex;
@@ -465,6 +470,7 @@ button {
 }
 
 /******** ALGORITHMS *********/
+
 .algorithm-catalog {
     display: flex;
     flex-direction: column;
@@ -674,6 +680,7 @@ button {
 }
 
 /******** SECRET KEY *********/
+
 .password-input {
     display: flex;
     border: 1px solid var(--border-default);
@@ -1047,6 +1054,7 @@ button {
 }
 
 /******** ERROR DISPLAY *********/
+
 .error-panel {
     margin-top: 16px;
     padding: 26px 20px;
@@ -1086,6 +1094,7 @@ button {
 }
 
 /******** COMPLETION DISPLAY *********/
+
 .completion-panel {
     margin-top: 16px;
     padding: 26px 20px;
@@ -1136,6 +1145,7 @@ button {
 }
 
 /******** RESULT DISPLAY *********/
+
 .result-container {
     margin-top: 20px;
     text-align: left;
@@ -1199,6 +1209,7 @@ button {
 }
 
 /******** PREVIEW *********/
+
 .decrypted-preview {
     width: 100%;
     display: flex;
@@ -1293,6 +1304,7 @@ button {
 }
 
 /******** DETAILS *********/
+
 .activity-panel {
     display: flex;
     align-items: center;
@@ -1357,6 +1369,7 @@ footer {
 }
 
 /******** RESPONSIVENESS *********/
+
 @media (max-width: 800px) {
 
     .navbar nav,

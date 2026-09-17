@@ -1,4 +1,4 @@
-import { encryptBytes, decryptBytes, type CryptoProgress, type EncryptionResult } from "./aes";
+import { decryptBytes, decryptBytesWithSharedSecret, encryptBytes, encryptBytesWithSharedSecret, type CryptoProgress, type EncryptionResult } from "./aes";
 import { base64ToBytes, parsePackage } from "./package";
 import type { SymmetricAlgorithm } from "./KeyDerivation";
 
@@ -40,7 +40,7 @@ export async function encryptFile(file: File, resourceType: ResourceType, passwo
     };
 }> {
     const bytes = await resourceToBytes(file, resourceType);
-    const result = await encryptBytes(bytes, password, onProgress,algorithm);
+    const result = await encryptBytes(bytes, password, onProgress, algorithm);
 
     return {
         result,
@@ -49,6 +49,23 @@ export async function encryptFile(file: File, resourceType: ResourceType, passwo
             filename: file.name,
             mimeType: file.type || "application/octet-stream",
         }
+    };
+}
+
+export async function encryptFileWithSharedSecret(file: File, resourceType: ResourceType, sharedSecret: string, onProgress?: CryptoProgress): Promise<{
+    result: EncryptionResult;
+    metadata: { resourceType: ResourceType; filename: string; mimeType: string };
+}> {
+    const bytes = await resourceToBytes(file, resourceType);
+    const result = await encryptBytesWithSharedSecret(bytes, sharedSecret, onProgress);
+
+    return {
+        result,
+        metadata: {
+            resourceType,
+            filename: file.name,
+            mimeType: file.type || "application/octet-stream",
+        },
     };
 }
 
@@ -74,7 +91,30 @@ export async function decryptFile(packageString: string, password: string, onPro
     );
 }
 
-export function downloadFile(file:File):void{
+export async function decryptFileWithSharedSecret(packageString: string, sharedSecret: string, onProgress?: CryptoProgress): Promise<File> {
+    const packageData = parsePackage(packageString);
+    if (!("salt" in packageData)) throw new Error("RSA packages can only contain text resources.");
+
+    const decryptedBytes = await decryptBytesWithSharedSecret(
+        base64ToBytes(packageData.ciphertext),
+        sharedSecret,
+        base64ToBytes(packageData.salt),
+        base64ToBytes(packageData.iv),
+        onProgress
+    );
+    const decryptedBlob = new Blob(
+        [decryptedBytes.buffer as ArrayBuffer],
+        { type: packageData.mimeType || "application/octet-stream" }
+    );
+
+    return new File(
+        [decryptedBlob],
+        packageData.filename || "decrypted-file",
+        { type: decryptedBlob.type }
+    );
+}
+
+export function downloadFile(file: File): void {
     const url = URL.createObjectURL(file);
     const link = document.createElement("a");
     link.href = url;
