@@ -8,22 +8,11 @@ import type { SymmetricAlgorithm } from "../crypto/KeyDerivation";
 import { decryptRsaText, encryptRsaText, generateRsaKeyPair, type RsaAlgorithm } from "../crypto/rsa";
 import { deriveSharedSecret, generateKeyExchangePair, type KeyExchangeAlgorithm } from "../crypto/keyExchange";
 import { createFolderArchive, createFolderArchiveFromDirectory, formatBytes, inspectFolderArchive, type FolderSummary } from "../crypto/folderArchive";
+import { lockPdf, unlockPdf, PdfEngineError } from "../crypto/pdfHandler";
 
 type Mode = "encrypt" | "decrypt";
+type WorkspaceMode = "encrypt" | "decrypt" | "lock" | "unlock";
 type EncryptionAlgorithm = SymmetricAlgorithm | RsaAlgorithm | KeyExchangeAlgorithm;
-
-function downloadPrivateKey(privateKey: string, algorithm: RsaAlgorithm): void {
-    const blob = new Blob([privateKey], { type: "application/x-pem-file" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `lockbox-${algorithm.toLowerCase()}-private-key.pem`;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-}
 
 type AlgorithmCategory = {
     id: string;
@@ -43,7 +32,45 @@ type Algorithm = {
     operation: "encryption" | "key-exchange";
     supports: ResourceType[];
 };
+type dropzoneProp = { title: string; hint: string };
 
+const resourceTypes: Record<ResourceType,
+    {
+        name: string;
+        description: string;
+        icon: string;
+    }> = {
+    text: {
+        name: "Text",
+        description: "Messages, notes and other text",
+        icon: "📝",
+    },
+    file: {
+        name: "File",
+        description: "Documents and other files",
+        icon: "📄",
+    },
+    image: {
+        name: "Image",
+        description: "Photos and other images",
+        icon: "📸",
+    },
+    audio: {
+        name: "Audio",
+        description: "Music, recordings and audio",
+        icon: "🔊",
+    },
+    video: {
+        name: "Video",
+        description: "Videos and recordings",
+        icon: "🎬",
+    },
+    folder: {
+        name: "Folder",
+        description: "Protect an entire folder",
+        icon: "📁",
+    },
+};
 
 const algorithmCategories: Record<string, AlgorithmCategory> = {
     symmetric: {
@@ -98,7 +125,6 @@ const algorithmCategories: Record<string, AlgorithmCategory> = {
             }
         ] satisfies Algorithm[],
     },
-
     publicKey: {
         id: "public-key",
         icon: "◇",
@@ -140,7 +166,6 @@ const algorithmCategories: Record<string, AlgorithmCategory> = {
             }
         ] satisfies Algorithm[],
     },
-
     keyExchange: {
         id: "key-exchange",
         icon: "⇄",
@@ -170,50 +195,43 @@ const algorithmCategories: Record<string, AlgorithmCategory> = {
                 supports: [],
             }
         ] satisfies Algorithm[],
-    },
+    }
+};
+const dropzoneProp: Record<WorkspaceMode, (resource: ResourceType) => dropzoneProp> = {
+    encrypt: (resource) => ({
+        title: `Drag and drop your ${resource} here`,
+        hint: "or click to browse your device"
+    }),
+    decrypt: () => ({
+        title: "Drag and drop your LockBox file here",
+        hint: "Only .lbx encrypted files are accepted"
+    }),
+    lock: () => ({
+        title: "Drag and drop the PDF you want to lock",
+        hint: "Only PDF files are accepted"
+    }),
+    unlock: () => ({
+        title: "Drag and drop your locked PDF here",
+        hint: "Only password-protected PDFs, password required"
+    })
 };
 
-const resourceTypes: Record<ResourceType,
-    {
-        name: string;
-        description: string;
-        icon: string;
-    }
-> = {
-    text: {
-        name: "Text",
-        description: "Messages, notes and other text",
-        icon: "📝",
-    },
-    file: {
-        name: "File",
-        description: "Documents and other files",
-        icon: "📄",
-    },
-    image: {
-        name: "Image",
-        description: "Photos and other images",
-        icon: "📸",
-    },
-    audio: {
-        name: "Audio",
-        description: "Music, recordings and audio",
-        icon: "🔊",
-    },
-    video: {
-        name: "Video",
-        description: "Videos and recordings",
-        icon: "🎬",
-    },
-    folder: {
-        name: "Folder",
-        description: "Protect an entire folder",
-        icon: "📁",
-    },
-};
+function downloadPrivateKey(privateKey: string, algorithm: RsaAlgorithm): void {
+    const blob = new Blob([privateKey], { type: "application/x-pem-file" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `lockbox-${algorithm.toLowerCase()}-private-key.pem`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
 
 function App() {
     const [mode, setMode] = useState<Mode>("encrypt");
+    const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode | null>(null);
     const [selectedResource, setSelectedResource] = useState<ResourceType>("text");
     const [selectedAlgorithm, setSelectedAlgorithm] = useState<EncryptionAlgorithm>("AES-256-GCM");
     const [openCategory, setOpenCategory] = useState<string | null>("symmetric");
@@ -231,6 +249,7 @@ function App() {
     const [isDragging, setIsDragging] = useState(false);
     const [uploadError, setUploadError] = useState("");
     const [decryptedFile, setDecryptedFile] = useState<File | null>(null);
+    const [lockedFile, setLockedFile] = useState<File | null>(null);
     const [folderSummary, setFolderSummary] = useState<FolderSummary | null>(null);
     const [decryptedFolderSummary, setDecryptedFolderSummary] = useState<FolderSummary | null>(null);
     const [publicKey, setPublicKey] = useState("");
@@ -248,6 +267,8 @@ function App() {
         Object.values(algorithmCategories)
             .flatMap(category => category.algorithms)
             .find(algorithm => algorithm.id === selectedAlgorithm);
+    const isLockMode = workspaceMode === "lock" || workspaceMode === "unlock";
+    const dropzone = workspaceMode ? dropzoneProp[workspaceMode](selectedResource) : null;
 
     const availableAlgorithms = Object.values(algorithmCategories)
         .flatMap(category => category.algorithms)
@@ -255,18 +276,72 @@ function App() {
             algorithm.supports.includes(selectedResource)
         );
 
-    const hasResource = selectedResource === "text"
-        ? resourceText.trim().length > 0
-        : selectedFile !== null;
-    const resourceRequirementMessage = selectedResource === "text"
-        ? "Enter text before starting this operation."
-        : `Upload a ${resourceTypes[selectedResource].name.toLowerCase()} before starting this operation.`;
-    const keyRequirementMessage = mode === "encrypt"
-        ? "Enter a public key or generate a key pair before starting this operation."
-        : "Enter the private key for this encrypted resource before starting this operation.";
-    const keyMaterialMissing = selectedAlgorithmConfig?.operation === "key-exchange"
-        ? !exchangePrivateKey || (mode === "encrypt" && !peerPublicKey.trim())
-        : selectedAlgorithmConfig?.keyType === "keypair" && !(mode === "encrypt" ? publicKey.trim() : privateKey.trim());
+    const hasResource =
+        selectedResource === "text"
+            ? resourceText.trim().length > 0
+            : selectedFile !== null;
+    const resourceRequirementMessage =
+        selectedResource === "text"
+            ? "Enter text before starting this operation."
+            : `Upload a ${resourceTypes[selectedResource].name.toLowerCase()} before starting this operation.`;
+    const keyRequirementMessage =
+        mode === "encrypt"
+            ? "Enter a public key or generate a key pair before starting this operation."
+            : "Enter the private key for this encrypted resource before starting this operation.";
+    const keyMaterialMissing =
+        isLockMode
+            ? inputPassword.length === 0
+            : selectedAlgorithmConfig?.operation === "key-exchange"
+                ? !exchangePrivateKey || (mode === "encrypt" && !peerPublicKey.trim())
+                : selectedAlgorithmConfig?.keyType === "keypair" && !(mode === "encrypt" ? publicKey.trim() : privateKey.trim());
+
+    const modeOptions: {
+        workspace: WorkspaceMode;
+        mode: Mode;
+        icon: string;
+        label: string;
+        description: string;
+        defaults?: () => void;
+    }[] = [
+            {
+                workspace: "encrypt",
+                mode: "encrypt",
+                icon: "🔒",
+                label: "Encrypt",
+                description: "Choose an encryption method and protect a resource"
+            },
+            {
+                workspace: "decrypt",
+                mode: "decrypt",
+                icon: "🔓",
+                label: "Decrypt",
+                description: "Restore a previously encrypted resource"
+            },
+            {
+                workspace: "lock",
+                mode: "encrypt",
+                icon: "🔐",
+                label: "Create Lock",
+                description: "Password-protect a PDF",
+                defaults: () => {
+                    setSelectedResource("file");
+                    setSelectedAlgorithm("AES-256-GCM");
+                    setResourceText("");
+                }
+            },
+            {
+                workspace: "unlock",
+                mode: "decrypt",
+                icon: "🔓",
+                label: "Remove Lock",
+                description: "Remove a PDF password protection",
+                defaults: () => {
+                    setSelectedResource("file");
+                    setSelectedAlgorithm("AES-256-GCM");
+                    setResourceText("");
+                }
+            },
+        ];
 
     const handleFolderPicker = async () => {
         const picker = (window as Window & {
@@ -327,6 +402,7 @@ function App() {
     };
 
     {/************** PROCESSING DISPLAY DETAILS **************/ }
+
     const processingSteps = mode === "encrypt"
         ? [
             "Preparing resource",
@@ -362,7 +438,9 @@ function App() {
                 </div>
             </header>
             <main className="workspace">
+
                 {/**************INTRO **************/}
+
                 <section className="intro">
                     <div className="eyebrow">
                         <span>01</span> SECURE YOUR DATA
@@ -372,28 +450,52 @@ function App() {
                 </section>
 
                 <section className="crypto-workspace">
+
                     {/**************MODES **************/}
-                    <div className="mode-selector">
-                        <button
-                            className={mode === "encrypt" ? "mode active" : "mode"}
-                            onClick={() => setMode("encrypt")} >
-                            <span className="mode-icon">🔒</span>
-                            <div>
-                                <strong>Encrypt</strong>
-                                <small>Protect your resource</small>
+
+                    {workspaceMode === null ? (
+                        <div className="mode-selector workspace-selector">
+                            {modeOptions.map(opt => (
+                                <button
+                                    key={opt.workspace}
+                                    className="mode"
+                                    onClick={() => {
+                                        setWorkspaceMode(opt.workspace);
+                                        setMode(opt.mode);
+                                        opt.defaults?.();
+                                    }}>
+                                    <span className="mode-icon">{opt.icon}</span>
+                                    <div>
+                                        <strong>{opt.label}</strong>
+                                        <small>{opt.description}</small>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="workspace-subheader">
+                            <button type="button" className="back-button" onClick={() => setWorkspaceMode(null)}>
+                                ← All tools
+                            </button>
+
+                            <div className="workspace-header-content">
+                                <strong>
+                                    {isLockMode
+                                        ? mode === "encrypt" ? "Create Lock" : "Remove Lock"
+                                        : mode === "encrypt" ? "Encryption" : "Decryption"
+                                    }
+                                </strong>
+
+                                <span>
+                                    {isLockMode
+                                        ? mode === "encrypt" ? "Password-protect a PDF" : "Release a PDF from a password lock"
+                                        : mode === "encrypt" ? "Fully control your resource encryption" : "Decrypt your resource"
+                                    }
+                                </span>
                             </div>
-                        </button>
-                        <button
-                            className={mode === "decrypt" ? "mode active" : "mode"}
-                            onClick={() => setMode("decrypt")}>
-                            <span className="mode-icon">🔓</span>
-                            <div>
-                                <strong>Decrypt</strong>
-                                <small>Restore a resource</small>
-                            </div>
-                        </button>
-                    </div>
-                    <div className="workspace-grid">
+                        </div>
+                    )}
+                    {workspaceMode !== null && <div className="workspace-grid">
                         <section className="panel resource-panel">
                             <div className="panel-header">
                                 <div>
@@ -401,15 +503,23 @@ function App() {
                                     <h3>Resource</h3>
                                 </div>
                                 <span className="panel-label">
-                                    {mode === "encrypt" ? "INPUT" : "ENCRYPTED INPUT"}
+                                    {mode === "encrypt" ? "INPUT" : isLockMode ? "LOCKED INPUT" : "ENCRYPTED INPUT"}
                                 </span>
                             </div>
                             <label className="field-label">
-                                {mode === "encrypt" ? "What would you like to secure?" : "What would you like unlocked?"}
+                                {isLockMode
+                                    ? mode === "encrypt"
+                                        ? "Choose a PDF to password-protect"
+                                        : "Choose a password-protected PDF"
+                                    : mode === "encrypt"
+                                        ? isLockMode ? "What would you like to lock?" : "What would you like to secure?"
+                                        : isLockMode ? "What would you like to unlock?" : "What would you like unlocked?"
+                                }
                             </label>
 
                             {/**************RESOURCES **************/}
-                            <div className="resource-grid">
+
+                            {!isLockMode && <div className="resource-grid">
                                 {(
                                     Object.entries(resourceTypes) as [
                                         ResourceType,
@@ -434,11 +544,13 @@ function App() {
                                         </button>
                                     );
                                 })}
-                            </div>
+                            </div>}
 
-                            {selectedResource === "text" ? (
+                            {!isLockMode && selectedResource === "text" ? (
                                 <textarea className="text-input"
-                                    placeholder={mode === "encrypt" ? "Enter the text you want secured..." : "Paste your encrypted text here..."}
+                                    placeholder={mode === "encrypt"
+                                        ? isLockMode ? "Enter the text you want to lock..." : "Enter the text you want secured..."
+                                        : isLockMode ? "Paste your locked text here..." : "Paste your encrypted text here..."}
                                     value={resourceText}
                                     onChange={(event) => setResourceText(event.target.value)}
                                 ></textarea>
@@ -468,6 +580,15 @@ function App() {
                                         if (!file) return;
 
                                         if (mode === "decrypt") {
+                                            if (isLockMode) {
+                                                if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+                                                    setUploadError("Please select a PDF file.");
+                                                    return;
+                                                }
+                                                setUploadError("");
+                                                setSelectedFile(file);
+                                                return;
+                                            }
                                             if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-lockbox") {
                                                 setUploadError("Please select a valid LockBox (.lbx) file.");
                                                 return;
@@ -526,7 +647,11 @@ function App() {
                                             return;
                                         }
 
-                                        if (!ResourceIsValid(file, selectedResource)) {
+                                        if (isLockMode && (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"))) {
+                                            setUploadError("Please select a PDF file.");
+                                            return;
+                                        }
+                                        if (!isLockMode && !ResourceIsValid(file, selectedResource)) {
                                             setUploadError(`You entered the wrong resource type`);
                                             return;
                                         }
@@ -564,15 +689,10 @@ function App() {
                                     ) : (
                                         <>
                                             <div className="upload-icon">↑</div>
-                                            {mode === "decrypt" ? (
+                                            {dropzone && (
                                                 <>
-                                                    <strong>Drag and drop your LockBox file here</strong>
-                                                    <span>Only .lbx encrypted files are accepted</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <strong>Drag and drop your {selectedResource} here</strong>
-                                                    <span>or click to browse your device</span>
+                                                    <strong>{dropzone.title}</strong>
+                                                    <span>{dropzone.hint}</span>
                                                 </>
                                             )}
 
@@ -586,9 +706,11 @@ function App() {
                                             }}
                                             >
                                                 {selectedFile ? "Change file"
-                                                    : mode === "decrypt"
-                                                        ? "Browse .lbx file"
-                                                        : "Browse files"}
+                                                    : isLockMode
+                                                        ? "Browse PDF"
+                                                        : mode === "decrypt"
+                                                            ? "Browse .lbx file"
+                                                            : "Browse files"}
                                             </button>
                                         </>
                                     )}
@@ -596,17 +718,19 @@ function App() {
                                     <input type="file" id="resource-upload" hidden
                                         {...(selectedResource === "folder" && mode === "encrypt" ? { webkitdirectory: "", multiple: true } : {})}
                                         accept={
-                                            mode === "decrypt"
-                                                ? ".lbx,application/x-lockbox"
-                                                : selectedResource === "folder"
-                                                    ? undefined
-                                                    : selectedResource === "image"
-                                                        ? "image/*"
-                                                        : selectedResource === "audio"
-                                                            ? "audio/*"
-                                                            : selectedResource === "video"
-                                                                ? "video/*"
-                                                                : "*/*"
+                                            isLockMode
+                                                ? ".pdf,application/pdf"
+                                                : mode === "decrypt"
+                                                    ? ".lbx,application/x-lockbox"
+                                                    : selectedResource === "folder"
+                                                        ? undefined
+                                                        : selectedResource === "image"
+                                                            ? "image/*"
+                                                            : selectedResource === "audio"
+                                                                ? "audio/*"
+                                                                : selectedResource === "video"
+                                                                    ? "video/*"
+                                                                    : "*/*"
                                         }
                                         onChange={async (e) => {
                                             const files = Array.from(e.target.files ?? []);
@@ -631,7 +755,13 @@ function App() {
                                                 return;
                                             }
 
-                                            if (mode === "decrypt") {
+                                            if (isLockMode) {
+                                                if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+                                                    setUploadError("Please select a PDF file.");
+                                                    e.target.value = "";
+                                                    return;
+                                                }
+                                            } else if (mode === "decrypt") {
                                                 if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-lockbox") {
                                                     setUploadError("Please select a valid LockBox (.lbx) file.");
                                                     e.target.value = "";
@@ -668,86 +798,90 @@ function App() {
                             <div className="panel-header">
                                 <div>
                                     <span className="panel-number">02</span>
-                                    <h3>Cryptography</h3>
+                                    <h3>{isLockMode ? "Lock Settings" : "Cryptography"}</h3>
                                 </div>
-                                <span className="panel-label">CONFIG</span>
+                                <span className="panel-label">{isLockMode ? "PASSWORD" : "CONFIG"}</span>
                             </div>
-                            <label className="field-label">
-                                Encryption algorithm
-                            </label>
+                            {!isLockMode && (
+                                <>
+                                    <label className="field-label">Encryption algorithm</label>
 
-                            <div className="algorithm-catalog">
+                                    <div className="algorithm-catalog">
 
-                                {Object.values(algorithmCategories).map((category) => {
-                                    const isOpen = openCategory === category.id;
+                                        {Object.values(algorithmCategories).map((category) => {
+                                            const isOpen = openCategory === category.id;
 
-                                    return (
-                                        <div className="algorithm-category" key={category.id}>
-                                            <button
-                                                className={`category-header ${isOpen ? "open" : ""}`}
-                                                onClick={() => setOpenCategory(isOpen ? null : category.id)}
-                                            >
-                                                <div className="category-title">
-                                                    <div className="category-icon">{category.icon}</div>
-                                                    <div>
-                                                        <strong>{category.name}</strong>
-                                                        <span>{category.description}</span>
-                                                    </div>
+                                            return (
+                                                <div className="algorithm-category" key={category.id}>
+                                                    <button
+                                                        className={`category-header ${isOpen ? "open" : ""}`}
+                                                        onClick={() => setOpenCategory(isOpen ? null : category.id)}
+                                                    >
+                                                        <div className="category-title">
+                                                            <div className="category-icon">{category.icon}</div>
+                                                            <div>
+                                                                <strong>{category.name}</strong>
+                                                                <span>{category.description}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="category-right">
+                                                            <span className="algorithm-count">
+                                                                {category.algorithms.length}{" "}
+                                                                {category.algorithms.length === 1 ? "METHOD" : "METHODS"}
+                                                            </span>
+                                                            <span className="category-chevron">{isOpen ? "-" : "+"}</span>
+                                                        </div>
+                                                    </button>
+
+                                                    {isOpen && (
+                                                        <div className="algorithm-options">
+                                                            {category.algorithms.map((algorithm) => {
+                                                                const isSupported = algorithm.operation === "key-exchange" || availableAlgorithms.some(available => available.id === algorithm.id);
+
+                                                                return (
+                                                                    <button
+                                                                        key={algorithm.id}
+                                                                        className={`algorithm-card ${selectedAlgorithm === algorithm.id ? "selected" : ""} ${!isSupported ? "disabled" : ""}`}
+                                                                        onClick={() => {
+                                                                            if (isSupported) {
+                                                                                setSelectedAlgorithm(algorithm.id as EncryptionAlgorithm);
+                                                                                setSharedSecret("");
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <div className="algorithm-icon">{algorithm.icon}</div>
+
+                                                                        <div className="algorithm-info">
+                                                                            <strong>{algorithm.name}</strong>
+                                                                            <span>{algorithm.description}</span>
+                                                                        </div>
+                                                                        {!isSupported && (
+                                                                            <span className="unsupported-reason">
+                                                                                Not suitable for {resourceTypes[selectedResource].name}
+                                                                            </span>
+                                                                        )}
+                                                                        <div className={`algorithm-badge ${algorithm.badgeType === "recommended" ? "recommended" : ""}`}>
+                                                                            {algorithm.badge}
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </div>
-
-                                                <div className="category-right">
-                                                    <span className="algorithm-count">
-                                                        {category.algorithms.length}{" "}
-                                                        {category.algorithms.length === 1 ? "METHOD" : "METHODS"}
-                                                    </span>
-                                                    <span className="category-chevron">{isOpen ? "-" : "+"}</span>
-                                                </div>
-                                            </button>
-
-                                            {isOpen && (
-                                                <div className="algorithm-options">
-                                                    {category.algorithms.map((algorithm) => {
-                                                        const isSupported = algorithm.operation === "key-exchange" || availableAlgorithms.some(available => available.id === algorithm.id);
-
-                                                        return (
-                                                            <button
-                                                                key={algorithm.id}
-                                                                className={`algorithm-card ${selectedAlgorithm === algorithm.id ? "selected" : ""} ${!isSupported ? "disabled" : ""}`}
-                                                                onClick={() => {
-                                                                    if (isSupported) {
-                                                                        setSelectedAlgorithm(algorithm.id as EncryptionAlgorithm);
-                                                                        setSharedSecret("");
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <div className="algorithm-icon">{algorithm.icon}</div>
-
-                                                                <div className="algorithm-info">
-                                                                    <strong>{algorithm.name}</strong>
-                                                                    <span>{algorithm.description}</span>
-                                                                </div>
-                                                                {!isSupported && (
-                                                                    <span className="unsupported-reason">
-                                                                        Not suitable for {resourceTypes[selectedResource].name}
-                                                                    </span>
-                                                                )}
-                                                                <div className={`algorithm-badge ${algorithm.badgeType === "recommended" ? "recommended" : ""}`}>
-                                                                    {algorithm.badge}
-                                                                </div>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
                             {/**************SECURITY KEY **************/}
-                            {selectedAlgorithmConfig?.keyType === "password" && (
+                            {(isLockMode || selectedAlgorithmConfig?.keyType === "password") && (
                                 <>
                                     <label className="field-label key-label">
-                                        {mode === "encrypt" ? "Encryption password" : "Decryption password"}
+                                        {mode === "encrypt"
+                                            ? isLockMode ? "Lock password" : "Encryption password"
+                                            : isLockMode ? "Lock password" : "Decryption password"}
                                     </label>
 
                                     <div className="password-input">
@@ -795,11 +929,11 @@ function App() {
                                         </button>
                                     </div>
                                     <div className="security-note">
-                                        <span>✓</span> Your encryption key is processed locally
+                                        <span>✓</span> Your password is processed locally
                                     </div>
                                 </>
                             )}
-                            {selectedAlgorithmConfig?.keyType === "keypair" &&
+                            {!isLockMode && selectedAlgorithmConfig?.keyType === "keypair" &&
                                 selectedAlgorithmConfig?.operation === "encryption" && (
                                     <div className="keypair-section">
                                         <div className="keypair-header">
@@ -856,14 +990,14 @@ function App() {
                                                 </button>)
                                         ) : (
                                             <>
-                                                    <button
-                                                        type="button"
-                                                        className="secondary-action"
-                                                        onClick={() => {
-                                                            document.getElementById("pkey-upload")?.click();
-                                                        }}>
-                                                        Browse Private Key
-                                                    </button>
+                                                <button
+                                                    type="button"
+                                                    className="secondary-action"
+                                                    onClick={() => {
+                                                        document.getElementById("pkey-upload")?.click();
+                                                    }}>
+                                                    Browse Private Key
+                                                </button>
                                                 <input type="file" id="pkey-upload" hidden accept=".pem"
                                                     onChange={(event) => {
                                                         const file = event.target.files?.[0];
@@ -882,7 +1016,7 @@ function App() {
                                         </div>
                                     </div>
                                 )}
-                            {selectedAlgorithmConfig?.operation === "key-exchange" && (
+                            {!isLockMode && selectedAlgorithmConfig?.operation === "key-exchange" && (
                                 <div className="key-exchange-section">
                                     <div className="keypair-header">
                                         <div>
@@ -1017,14 +1151,16 @@ function App() {
                                     </div>
                                 </div>
                             )}
-                            {(selectedAlgorithmConfig?.operation === "encryption" || selectedAlgorithmConfig?.operation === "key-exchange") && (
+                            {(isLockMode || selectedAlgorithmConfig?.operation === "encryption" || selectedAlgorithmConfig?.operation === "key-exchange") && (
                                 <>
                                     {isProcessing ? (
                                         /************** PROCESSING PROGRESSION ANIMATION **************/
                                         <div className="processing-panel">
                                             <div className="processing-icon">◈</div>
                                             <div className="processing-title">
-                                                {mode === "encrypt" ? "SECURING RESOURCE" : "RESTORING RESOURCE"}
+                                                {mode === "encrypt"
+                                                    ? isLockMode ? "CREATING LOCK" : "SECURING RESOURCE"
+                                                    : isLockMode ? "REMOVING LOCK" : "RESTORING RESOURCE"}
                                             </div>
                                             <div className="processing-description">
                                                 {processingSteps[processingStep]}...
@@ -1059,7 +1195,7 @@ function App() {
                                                 ))}
                                             </div>
                                             <div className="processing-meta">
-                                                <span>{selectedAlgorithm}</span>
+                                                <span>{isLockMode ? "PASSWORD PROTECTION" : selectedAlgorithm}</span>
                                                 <span>LOCAL PROCESSING</span>
                                             </div>
                                         </div>
@@ -1067,7 +1203,11 @@ function App() {
                                         /**************ERROR SHOWING SECTION **************/
                                         <div className="error-panel">
                                             <div className="error-icon">!</div>
-                                            <div className="error-tile">{mode === "decrypt" ? "DECRYPTION FAILED" : "ENCRYPTION FAILED"}</div>
+                                            <div className="error-tile">
+                                                {mode === "decrypt"
+                                                    ? isLockMode ? "REMOVE LOCK FAILED" : "DECRYPTION FAILED"
+                                                    : isLockMode ? "CREATE LOCK FAILED" : "ENCRYPTION FAILED"}
+                                            </div>
                                             <div className="error-description">{operationError} </div>
                                             <button className="primary-action" onClick={() => setOperationError(null)}>↻ Try Again</button>
                                         </div>
@@ -1077,16 +1217,24 @@ function App() {
                                             <div className="completion-icon">✓</div>
 
                                             <div className="completion-title">
-                                                {mode === "encrypt" ? "ENCRYPTION COMPLETE" : "DECRYPTION COMPLETE"}
+                                                {mode === "encrypt"
+                                                    ? isLockMode ? "LOCK CREATED" : "ENCRYPTION COMPLETE"
+                                                    : isLockMode ? "LOCK REMOVED" : "DECRYPTION COMPLETE"}
                                             </div>
                                             <div className="completion-description">
-                                                {mode === "encrypt" ? "Your resource has been successfully secured." : "Your resource has been successfully restored."}
+                                                {mode === "encrypt"
+                                                    ? isLockMode ? "Your resource is now password protected." : "Your resource has been successfully secured."
+                                                    : isLockMode ? "Your resource has been restored with its password." : "Your resource has been successfully restored."}
                                             </div>
                                             {operationResult && (
                                                 <div className="result-container">
                                                     <div className="result-header">
-                                                        <span>ENCRYPTED RESOURCE</span>
-                                                        <span>{selectedAlgorithm}</span>
+                                                        <span>
+                                                            {isLockMode
+                                                                ? mode === "encrypt" ? "LOCKED RESOURCE" : "RESTORED RESOURCE"
+                                                                : "ENCRYPTED RESOURCE"}
+                                                        </span>
+                                                        <span>{isLockMode ? "PASSWORD PROTECTED" : selectedAlgorithm}</span>
                                                     </div>
                                                     {/**************RESULT DISPLAY SECTION **************/}
                                                     <div className="result-box">
@@ -1151,9 +1299,13 @@ function App() {
                                                         </button>
                                                         <button
                                                             className={`result-action ${downloaded ? "done" : ""}`}
-                                                            disabled={mode === "decrypt" && !decryptedFile}
+                                                            disabled={(mode === "decrypt" && !decryptedFile) || (isLockMode && mode === "encrypt" && !lockedFile)}
                                                             onClick={() => {
-                                                                if (mode === "decrypt") {
+                                                                if (isLockMode && mode === "encrypt") {
+                                                                    if (!lockedFile) return;
+
+                                                                    downloadFile(lockedFile);
+                                                                } else if (mode === "decrypt") {
                                                                     if (!decryptedFile) return;
 
                                                                     downloadFile(decryptedFile);
@@ -1167,10 +1319,10 @@ function App() {
                                                                     const link = document.createElement("a");
                                                                     link.href = url;
 
-                                                                    const originalName = selectedResource === "text" ? "encrypted-text" : selectedFile?.name ?? "lockbox-resource";
+                                                                    const originalName = selectedResource === "text" ? isLockMode ? "locked-text" : "encrypted-text" : selectedFile?.name ?? "lockbox-resource";
                                                                     const baseName = originalName.includes(".") ? originalName.substring(0, originalName.lastIndexOf(".")) : originalName;
 
-                                                                    link.download = `${baseName}.lbx`;
+                                                                    link.download = isLockMode ? `${originalName}.lbx` : `${baseName}.lbx`;
 
                                                                     document.body.appendChild(link);
                                                                     link.click();
@@ -1186,11 +1338,13 @@ function App() {
                                                         >
                                                             {downloaded
                                                                 ? "✓ Downloaded"
-                                                                : mode === "decrypt" && decryptedFile
-                                                                    ? decryptedFolderSummary
-                                                                        ? `↓ Download ${decryptedFolderSummary.folderName}.zip`
-                                                                        : `↓ Download ${decryptedFile.name}`
-                                                                    : "↓ Download"}
+                                                                : isLockMode && mode === "encrypt" && lockedFile
+                                                                    ? `↓ Download ${lockedFile.name}`
+                                                                    : mode === "decrypt" && decryptedFile
+                                                                        ? decryptedFolderSummary
+                                                                            ? `↓ Download ${decryptedFolderSummary.folderName}.zip`
+                                                                            : `↓ Download ${decryptedFile.name}`
+                                                                        : "↓ Download"}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1214,13 +1368,14 @@ function App() {
                                                     setCopied(false);
                                                     setDownloaded(false);
                                                     setDecryptedFile(null);
+                                                    setLockedFile(null);
 
                                                     const fileInput = document.getElementById("resource-upload") as HTMLInputElement | null;
                                                     if (fileInput) fileInput.value = "";
                                                 }}
                                             >
                                                 <span>↻</span>
-                                                {mode === "encrypt" ? "Encrypt Another Resource" : "Decrypt Another Resource"}
+                                                {mode === "encrypt" ? isLockMode ? "Lock Another Resource" : "Encrypt Another Resource" : isLockMode ? "Remove Another Lock" : "Decrypt Another Resource"}
                                             </button>
                                         </div>
                                     ) : (
@@ -1237,6 +1392,7 @@ function App() {
                                                     setCopied(false);
                                                     setDownloaded(false);
                                                     setOperationResult(null);
+                                                    setLockedFile(null);
                                                     setOperationComplete(false);
                                                     setIsProcessing(true);
                                                     setProcessingStep(0);
@@ -1244,7 +1400,16 @@ function App() {
 
                                                     try {
                                                         if (mode === "encrypt") {
-                                                            if (selectedResource === "text") {
+                                                            if (isLockMode) {
+                                                                if (!selectedFile) {
+                                                                    setOperationError("Please select a PDF file first");
+                                                                    setIsProcessing(false);
+                                                                    return;
+                                                                }
+                                                                const lockedBlob = await lockPdf(selectedFile, inputPassword);
+                                                                setLockedFile(new File([lockedBlob], `locked-${selectedFile.name}`, { type: "application/pdf" }));
+                                                                setOperationResult(`PDF locked: ${selectedFile.name}`);
+                                                            } else if (selectedResource === "text") {
                                                                 if (selectedAlgorithmConfig?.operation === "key-exchange") {
                                                                     const secret = await deriveSharedSecret(selectedAlgorithm as KeyExchangeAlgorithm, exchangePrivateKey, peerPublicKey);
                                                                     const result = await encryptTextWithSharedSecret(resourceText, secret, setProcessingStep);
@@ -1259,7 +1424,10 @@ function App() {
                                                                     setOperationResult(createRsaPackage(result, { resourceType: "text" }));
                                                                 } else {
                                                                     const result = await encryptText(resourceText, inputPassword, setProcessingStep, selectedAlgorithm as SymmetricAlgorithm);
-                                                                    setOperationResult(createPackage(result, { resourceType: "text" }));
+                                                                    setOperationResult(createPackage(result, {
+                                                                        resourceType: "text",
+                                                                        ...(isLockMode ? { protectionMode: "lock" as const } : {}),
+                                                                    }));
                                                                 }
                                                             } else {
                                                                 if (!selectedFile) {
@@ -1281,6 +1449,7 @@ function App() {
                                                                     ...(selectedAlgorithmConfig?.operation === "key-exchange"
                                                                         ? { keyExchangeAlgorithm: selectedAlgorithm as KeyExchangeAlgorithm, keyDerivation: "HKDF-SHA-256" as const, senderPublicKey: exchangePublicKey }
                                                                         : {}),
+                                                                    ...(isLockMode ? { protectionMode: "lock" as const } : {}),
                                                                     ...(selectedResource === "folder" && folderSummary
                                                                         ? { folderName: folderSummary.folderName, folderFileCount: folderSummary.fileCount, folderCount: folderSummary.folderCount }
                                                                         : {}),
@@ -1289,8 +1458,20 @@ function App() {
                                                                 setOperationResult(encryptedPackage);
                                                             }
                                                         } else {
-                                                            if (selectedResource === "text") {
+                                                            if (isLockMode) {
+                                                                if (!selectedFile) {
+                                                                    setOperationError("Please select a locked PDF file first.");
+                                                                    setIsProcessing(false);
+                                                                    return;
+                                                                }
+                                                                const unlockedBlob = await unlockPdf(selectedFile, inputPassword);
+                                                                setDecryptedFile(new File([unlockedBlob], `unlocked-${selectedFile.name}`, { type: "application/pdf" }));
+                                                                setOperationResult(`PDF unlocked: ${selectedFile.name}`);
+                                                            } else if (selectedResource === "text") {
                                                                 const packageData = unpackage(resourceText);
+                                                                if (isLockMode && packageData.protectionMode !== "lock") {
+                                                                    throw new CryptoError("INVALID_PACKAGE", "This package was not created with Lock mode.");
+                                                                }
                                                                 if ("wrappedKey" in packageData) {
                                                                     const decryptedText = await decryptRsaText(packageData.ciphertext, packageData.wrappedKey, packageData.iv, privateKey, setProcessingStep);
                                                                     setOperationResult(decryptedText);
@@ -1314,6 +1495,9 @@ function App() {
                                                                 }
                                                                 const encryptedPackage = await selectedFile.text();
                                                                 const packageData = unpackage(encryptedPackage.trim());
+                                                                if (isLockMode && packageData.protectionMode !== "lock") {
+                                                                    throw new CryptoError("INVALID_PACKAGE", "This package was not created with Lock mode.");
+                                                                }
                                                                 if ("wrappedKey" in packageData) {
                                                                     throw new CryptoError("INVALID_PACKAGE", "RSA encryption currently supports text resources only.");
                                                                 }
@@ -1337,7 +1521,6 @@ function App() {
                                                                 }
                                                             }
                                                         }
-
                                                         setProcessingStep(processingSteps.length);
                                                         setIsProcessing(false);
                                                         setOperationComplete(true);
@@ -1380,6 +1563,8 @@ function App() {
                                                                 default:
                                                                     setOperationError("The operation could not be completed.");
                                                             }
+                                                        } else if (error instanceof PdfEngineError) {
+                                                            setOperationError(error.message);
                                                         } else {
                                                             setOperationError(mode === "decrypt" ? "The entered lbx file has been tampered with or corrupted" : "Something unexpected happened. Please try again");
                                                         }
@@ -1390,7 +1575,7 @@ function App() {
                                                     {mode === "encrypt" ? "🔒" : "🔓"}
                                                 </span>
 
-                                                {mode === "encrypt" ? "Encrypt Resource" : "Decrypt Resource"}
+                                                {mode === "encrypt" ? isLockMode ? "Create Lock" : "Encrypt Resource" : isLockMode ? "Remove Lock" : "Decrypt Resource"}
                                             </button>
                                             {!hasResource ? (
                                                 <p className="action-reason" role="status">
@@ -1398,11 +1583,13 @@ function App() {
                                                 </p>
                                             ) : keyMaterialMissing ? (
                                                 <p className="action-reason" role="status">
-                                                    {selectedAlgorithmConfig?.operation === "key-exchange"
-                                                        ? mode === "encrypt"
-                                                            ? "Generate your key pair and enter the peer public key before encrypting."
-                                                            : "Generate or enter your private key before decrypting."
-                                                        : keyRequirementMessage}
+                                                    {isLockMode
+                                                        ? "Enter the pdf password before continuing with this operation"
+                                                        : selectedAlgorithmConfig?.operation === "key-exchange"
+                                                            ? mode === "encrypt"
+                                                                ? "Generate your key pair and enter the peer public key before encrypting."
+                                                                : "Generate or enter your private key before decrypting."
+                                                            : keyRequirementMessage}
                                                 </p>
                                             ) : null}
                                         </>
@@ -1410,7 +1597,7 @@ function App() {
                                 </>
                             )}
                         </section>
-                    </div>
+                    </div>}
                     {/************** APP DETAILS **************/}
                     <section className="activity-panel">
                         <div className="activity-heading">
@@ -1425,11 +1612,11 @@ function App() {
                             <i>→</i>
                             <span>KEY DERIVATION</span>
                             <i>→</i>
-                            <span>{selectedAlgorithm}</span>
+                            <span>{isLockMode ? "PASSWORD LOCK" : selectedAlgorithm}</span>
                             <i>→</i>
                             <span>AUTHENTICATION</span>
                             <i>→</i>
-                            <strong>{mode === "encrypt" ? "ENCRYPTED" : "DECRYPTED"}</strong>
+                            <strong>{mode === "encrypt" ? isLockMode ? "LOCKED" : "ENCRYPTED" : isLockMode ? "UNLOCKED" : "DECRYPTED"}</strong>
                         </div>
                     </section>
                 </section>

@@ -6,6 +6,7 @@ import type { KeyExchangeAlgorithm } from "./keyExchange";
 import type { ResourceType } from "./resourceCrypto";
 
 export type KeyDerivationScheme = "HKDF-SHA-256";
+export type ProtectionMode = "lock";
 
 const PACKAGE_PREFIX = "LBX1";
 const SUPPORTED_ALGORITHMS: SymmetricAlgorithm[] = [
@@ -25,6 +26,7 @@ interface CommonPackageFields {
     ciphertext: string;
     keyExchangeAlgorithm?: KeyExchangeAlgorithm;
     keyDerivation?: KeyDerivationScheme;
+    protectionMode?: ProtectionMode;
     senderPublicKey?: string;
     folderName?: string;
     folderFileCount?: number;
@@ -53,6 +55,7 @@ export interface UnpackagedSymmetricPackage {
     ciphertext: Uint8Array<ArrayBuffer>;
     keyExchangeAlgorithm?: KeyExchangeAlgorithm;
     keyDerivation?: KeyDerivationScheme;
+    protectionMode?: ProtectionMode;
     senderPublicKey?: string;
     folderName?: string;
     folderFileCount?: number;
@@ -69,6 +72,7 @@ export interface UnpackagedRsaPackage {
     wrappedKey: Uint8Array<ArrayBuffer>;
     keyExchangeAlgorithm?: KeyExchangeAlgorithm;
     keyDerivation?: KeyDerivationScheme;
+    protectionMode?: ProtectionMode;
     senderPublicKey?: string;
     folderName?: string;
     folderFileCount?: number;
@@ -83,6 +87,7 @@ export interface ResourceMetadata {
     folderCount?: number;
     keyExchangeAlgorithm?: KeyExchangeAlgorithm;
     keyDerivation?: KeyDerivationScheme;
+    protectionMode?: ProtectionMode;
     senderPublicKey?: string;
 }
 
@@ -112,6 +117,7 @@ export function createPackage(result: EncryptionResult, metadata: ResourceMetada
         mimeType: metadata.mimeType,
         keyExchangeAlgorithm: metadata.keyExchangeAlgorithm,
         keyDerivation: metadata.keyDerivation,
+        protectionMode: metadata.protectionMode,
         senderPublicKey: metadata.senderPublicKey,
         folderName: metadata.folderName,
         folderFileCount: metadata.folderFileCount,
@@ -182,6 +188,7 @@ export function unpackage(encryptedPackage: string): UnpackagedSymmetricPackage 
             ciphertext: base64ToBytes(packageData.ciphertext),
             keyExchangeAlgorithm: packageData.keyExchangeAlgorithm,
             keyDerivation: packageData.keyDerivation,
+            protectionMode: packageData.protectionMode,
             senderPublicKey: packageData.senderPublicKey,
             folderName: packageData.folderName,
             folderFileCount: packageData.folderFileCount,
@@ -199,6 +206,7 @@ export function unpackage(encryptedPackage: string): UnpackagedSymmetricPackage 
         wrappedKey: base64ToBytes(packageData.wrappedKey),
         keyExchangeAlgorithm: packageData.keyExchangeAlgorithm,
         keyDerivation: packageData.keyDerivation,
+        protectionMode: packageData.protectionMode,
         senderPublicKey: packageData.senderPublicKey,
         folderName: packageData.folderName,
         folderFileCount: packageData.folderFileCount,
