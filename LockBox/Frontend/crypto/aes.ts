@@ -112,7 +112,7 @@ async function deriveSharedSecretKey(sharedSecret: string, salt: Uint8Array<Arra
             name: "HKDF",
             hash: "SHA-256",
             salt,
-            info: new TextEncoder().encode("LockBox key-exchange encryption key"),
+            info: new TextEncoder().encode("LockBoxX key-exchange encryption key"),
         },
         hkdfKey,
         { name: "AES-GCM", length: 256 },

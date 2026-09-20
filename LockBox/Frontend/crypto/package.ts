@@ -149,7 +149,7 @@ export function createRsaPackage(result: RsaEncryptionResult, metadata: Resource
 }
 
 export function parsePackage(encryptedPackage: string): LockBoxPackage {
-    if (!encryptedPackage.startsWith(`${PACKAGE_PREFIX}.`)) throw new CryptoError("INVALID_PACKAGE", "This does not appear to be a valid LockBox package");
+    if (!encryptedPackage.startsWith(`${PACKAGE_PREFIX}.`)) throw new CryptoError("INVALID_PACKAGE", "This does not appear to be a valid LockBoxX package");
 
     const encodedData = encryptedPackage.slice(PACKAGE_PREFIX.length + 1);
     let packageData: LockBoxPackage;
@@ -160,7 +160,7 @@ export function parsePackage(encryptedPackage: string): LockBoxPackage {
         } catch {
             packageData = JSON.parse(atob(encodedData));
         }
-    } catch { throw new Error("Corrupted LockBox package") }
+    } catch { throw new Error("Corrupted LockBoxX package") }
 
     const isSymmetric = SUPPORTED_ALGORITHMS.includes(packageData.algorithm as SymmetricAlgorithm);
     const isRsa = SUPPORTED_RSA_ALGORITHMS.includes(packageData.algorithm as RsaAlgorithm);
@@ -169,7 +169,7 @@ export function parsePackage(encryptedPackage: string): LockBoxPackage {
     const hasRsaFields = isRsa && "wrappedKey" in packageData && !!packageData.wrappedKey;
 
     if (!hasRequiredFields || (!hasSymmetricFields && !hasRsaFields))
-        throw new CryptoError("INVALID_PACKAGE", "The LockBox package is missing required encryption data.");
+        throw new CryptoError("INVALID_PACKAGE", "The LockBoxX package is missing required encryption data.");
 
     return packageData;
 }

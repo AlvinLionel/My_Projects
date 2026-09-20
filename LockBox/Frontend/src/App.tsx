@@ -203,7 +203,7 @@ const dropzoneProp: Record<WorkspaceMode, (resource: ResourceType) => dropzonePr
         hint: "or click to browse your device"
     }),
     decrypt: () => ({
-        title: "Drag and drop your LockBox file here",
+        title: "Drag and drop your LockBoxX file here",
         hint: "Only .lbx encrypted files are accepted"
     }),
     lock: () => ({
@@ -221,7 +221,7 @@ function downloadPrivateKey(privateKey: string, algorithm: RsaAlgorithm): void {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `lockbox-${algorithm.toLowerCase()}-private-key.pem`;
+    link.download = `LockBoxX-${algorithm.toLowerCase()}-private-key.pem`;
 
     document.body.appendChild(link);
     link.click();
@@ -424,15 +424,10 @@ function App() {
                 <div className="brand">
                     <div className="brand-icon">◈</div>
                     <div>
-                        <h1>LockBox</h1>
+                        <h1>LockBoxX</h1>
                         <span>CRYPTOGRAPHIC WORKSPACE</span>
                     </div>
                 </div>
-                <nav>
-                    <button className="nav-link active">Workspace</button>
-                    <button className="nav-link">Tools</button>
-                    <button className="nav-link">About</button>
-                </nav>
                 <div className="security-status">
                     <span className="status-dot"></span>SECURITY MADE EASY
                 </div>
@@ -589,20 +584,20 @@ function App() {
                                                 setSelectedFile(file);
                                                 return;
                                             }
-                                            if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-lockbox") {
-                                                setUploadError("Please select a valid LockBox (.lbx) file.");
+                                            if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-LockBoxX") {
+                                                setUploadError("Please select a valid LockBoxX (.lbx) file.");
                                                 return;
                                             }
 
                                             void file.text().then((packageString) => {
                                                 const trimmedPackage = packageString.trim();
                                                 if (!isPackageValid(trimmedPackage)) {
-                                                    setUploadError("This file is not a valid LockBox package or has been tampered with.");
+                                                    setUploadError("This file is not a valid LockBoxX package or has been tampered with.");
                                                     return;
                                                 }
                                                 setUploadError("");
                                                 setSelectedFile(file);
-                                            }).catch(() => setUploadError("The LockBox file could not be read."));
+                                            }).catch(() => setUploadError("The LockBoxX file could not be read."));
 
                                             return;
                                         }
@@ -721,7 +716,7 @@ function App() {
                                             isLockMode
                                                 ? ".pdf,application/pdf"
                                                 : mode === "decrypt"
-                                                    ? ".lbx,application/x-lockbox"
+                                                    ? ".lbx,application/x-LockBoxX"
                                                     : selectedResource === "folder"
                                                         ? undefined
                                                         : selectedResource === "image"
@@ -762,14 +757,14 @@ function App() {
                                                     return;
                                                 }
                                             } else if (mode === "decrypt") {
-                                                if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-lockbox") {
-                                                    setUploadError("Please select a valid LockBox (.lbx) file.");
+                                                if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-LockBoxX") {
+                                                    setUploadError("Please select a valid LockBoxX (.lbx) file.");
                                                     e.target.value = "";
                                                     return;
                                                 }
                                                 const packageString = (await file.text()).trim();
                                                 if (!isPackageValid(packageString)) {
-                                                    setUploadError("This file is not a valid LockBox package or has been tampered with.");
+                                                    setUploadError("This file is not a valid LockBoxX package or has been tampered with.");
                                                     e.target.value = "";
                                                     return;
                                                 }
@@ -973,7 +968,7 @@ function App() {
                                                         setPrivateKey(keyPair.privateKey);
                                                         setOperationError(null);
                                                     } catch {
-                                                        setOperationError("LockBox could not generate the key pair locally.");
+                                                        setOperationError("LockBoxX could not generate the key pair locally.");
                                                     }
                                                 }}
                                             >
@@ -1103,7 +1098,7 @@ function App() {
                                                 setSharedSecret("");
                                                 setExchangeError("");
                                             } catch {
-                                                setExchangeError("LockBox could not generate the key pair locally.");
+                                                setExchangeError("LockBoxX could not generate the key pair locally.");
                                             }
                                         }}
                                     >
@@ -1203,7 +1198,7 @@ function App() {
                                         /**************ERROR SHOWING SECTION **************/
                                         <div className="error-panel">
                                             <div className="error-icon">!</div>
-                                            <div className="error-tile">
+                                            <div className="error-title">
                                                 {mode === "decrypt"
                                                     ? isLockMode ? "REMOVE LOCK FAILED" : "DECRYPTION FAILED"
                                                     : isLockMode ? "CREATE LOCK FAILED" : "ENCRYPTION FAILED"}
@@ -1312,14 +1307,14 @@ function App() {
                                                                 } else {
                                                                     const blob = new Blob(
                                                                         [operationResult],
-                                                                        { type: "application/x-lockbox" }
+                                                                        { type: "application/x-LockBoxX" }
                                                                     );
 
                                                                     const url = URL.createObjectURL(blob);
                                                                     const link = document.createElement("a");
                                                                     link.href = url;
 
-                                                                    const originalName = selectedResource === "text" ? isLockMode ? "locked-text" : "encrypted-text" : selectedFile?.name ?? "lockbox-resource";
+                                                                    const originalName = selectedResource === "text" ? isLockMode ? "locked-text" : "encrypted-text" : selectedFile?.name ?? "LockBoxX-resource";
                                                                     const baseName = originalName.includes(".") ? originalName.substring(0, originalName.lastIndexOf(".")) : originalName;
 
                                                                     link.download = isLockMode ? `${originalName}.lbx` : `${baseName}.lbx`;
@@ -1490,7 +1485,7 @@ function App() {
                                                                 }
                                                             } else {
                                                                 if (!selectedFile) {
-                                                                    setOperationError("Please provide an encrypted LockBox package.");
+                                                                    setOperationError("Please provide an encrypted LockBoxX package.");
                                                                     return;
                                                                 }
                                                                 const encryptedPackage = await selectedFile.text();
@@ -1534,16 +1529,16 @@ function App() {
                                                         if (error instanceof CryptoError) {
                                                             switch (error.code) {
                                                                 case "INVALID_PACKAGE":
-                                                                    setOperationError("This doesn't appear to be a valid LockBox encrypted resource");
+                                                                    setOperationError("This doesn't appear to be a valid LockBoxX encrypted resource");
                                                                     break;
                                                                 case "AUTHENTICATION_FAILED":
                                                                     setOperationError("The password is incorrect or the encrypted resource has been modified");
                                                                     break;
                                                                 case "DECRYPTION_FAILED":
-                                                                    setOperationError("LockBox could not decrypt this resource. Please try again.");
+                                                                    setOperationError("LockBoxX could not decrypt this resource. Please try again.");
                                                                     break;
                                                                 case "ENCRYPTION_FAILED":
-                                                                    setOperationError("LockBox could not encrypt this resource. Please try again.");
+                                                                    setOperationError("LockBoxX could not encrypt this resource. Please try again.");
                                                                     break;
                                                                 case "EMPTY_FOLDER":
                                                                     setOperationError("The selected folder is empty. Choose a folder containing at least one file.");
@@ -1616,13 +1611,17 @@ function App() {
                             <i>→</i>
                             <span>AUTHENTICATION</span>
                             <i>→</i>
-                            <strong>{mode === "encrypt" ? isLockMode ? "LOCKED" : "ENCRYPTED" : isLockMode ? "UNLOCKED" : "DECRYPTED"}</strong>
+                            <strong>
+                                {mode === "encrypt"
+                                    ? isLockMode ? "LOCKED" : "ENCRYPTED"
+                                    : isLockMode ? "UNLOCKED" : "DECRYPTED"}
+                            </strong>
                         </div>
                     </section>
                 </section>
             </main>
             <footer>
-                <span>LockBox</span>
+                <span>LockBoxX</span>
                 <span>CLIENT SIDE CRYPTOGRAPHY</span>
                 <span>● SYSTEM READY</span>
             </footer>
