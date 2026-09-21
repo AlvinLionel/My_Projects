@@ -31,8 +31,7 @@ export function initPdfLib(): Promise<QpdfModule> {
 async function startQpdf(): Promise<QpdfModule> {
   if (!self.crossOriginIsolated) {
     throw new PdfEngineError(
-      "The PDF engine needs a cross-origin isolated page. Serve the app with " +
-        "Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp."
+      "PDF protection couldn't be started. LockBoxX couldn't initialize the PDF security engine. Please refresh the page and try again."
     );
   }
 
@@ -42,7 +41,7 @@ async function startQpdf(): Promise<QpdfModule> {
       () =>
         reject(
           new PdfEngineError(
-            "The PDF engine did not start. Check that /qpdf/qpdf.js and /qpdf/qpdf.wasm are served correctly."
+            "PDF protection couldn't be initialized. The PDF security engine failed to load. Please refresh the page and try again."
           )
         ),
       INIT_TIMEOUT_MS

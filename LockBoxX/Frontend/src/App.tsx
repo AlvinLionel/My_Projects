@@ -401,6 +401,29 @@ function App() {
         }
     };
 
+    const resetOperation = () => {
+        setOperationComplete(false);
+        setOperationResult(null);
+        setResourceText("");
+        setInputPassword("");
+        setSelectedFile(null);
+        setFolderSummary(null);
+        setDecryptedFolderSummary(null);
+        setUploadError("");
+        setCopied(false);
+        setDownloaded(false);
+        setDecryptedFile(null);
+        setLockedFile(null);
+
+        const fileInput = document.getElementById(
+            "resource-upload"
+        ) as HTMLInputElement | null;
+
+        if (fileInput) {
+            fileInput.value = "";
+        }
+    };
+
     {/************** PROCESSING DISPLAY DETAILS **************/ }
 
     const processingSteps = mode === "encrypt"
@@ -469,7 +492,13 @@ function App() {
                         </div>
                     ) : (
                         <div className="workspace-subheader">
-                            <button type="button" className="back-button" onClick={() => setWorkspaceMode(null)}>
+                            <button
+                                type="button"
+                                className="back-button"
+                                onClick={() => {
+                                    setWorkspaceMode(null)
+                                    resetOperation()
+                                }}>
                                 ← All tools
                             </button>
 
@@ -1351,23 +1380,7 @@ function App() {
 
                                             <button
                                                 className="primary-action"
-                                                onClick={() => {
-                                                    setOperationComplete(false);
-                                                    setOperationResult(null);
-                                                    setResourceText("");
-                                                    setInputPassword("");
-                                                    setSelectedFile(null);
-                                                    setFolderSummary(null);
-                                                    setDecryptedFolderSummary(null);
-                                                    setUploadError("");
-                                                    setCopied(false);
-                                                    setDownloaded(false);
-                                                    setDecryptedFile(null);
-                                                    setLockedFile(null);
-
-                                                    const fileInput = document.getElementById("resource-upload") as HTMLInputElement | null;
-                                                    if (fileInput) fileInput.value = "";
-                                                }}
+                                                onClick={() => { resetOperation(); }}
                                             >
                                                 <span>↻</span>
                                                 {mode === "encrypt" ? isLockMode ? "Lock Another Resource" : "Encrypt Another Resource" : isLockMode ? "Remove Another Lock" : "Decrypt Another Resource"}
@@ -1570,7 +1583,9 @@ function App() {
                                                     {mode === "encrypt" ? "🔒" : "🔓"}
                                                 </span>
 
-                                                {mode === "encrypt" ? isLockMode ? "Create Lock" : "Encrypt Resource" : isLockMode ? "Remove Lock" : "Decrypt Resource"}
+                                                {mode === "encrypt"
+                                                    ? isLockMode ? "Create Lock" : "Encrypt Resource"
+                                                    : isLockMode ? "Remove Lock" : "Decrypt Resource"}
                                             </button>
                                             {!hasResource ? (
                                                 <p className="action-reason" role="status">
