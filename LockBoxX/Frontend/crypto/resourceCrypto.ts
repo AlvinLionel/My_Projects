@@ -3,7 +3,7 @@ import { base64ToBytes, parsePackage } from "./package";
 import type { SymmetricAlgorithm } from "./KeyDerivation";
 
 export type ResourceType = "text" | "file" | "image" | "audio" | "video" | "folder";
-export type passwordResourceType = "pdf" | "docx";
+export type passwordResourceType = "pdf" | "docx" | "xlsx"| "pptx";
 
 export async function resourceToBytes(resource: string | File, resourceType: ResourceType): Promise<Uint8Array<ArrayBuffer>> {
     if (resourceType === "text") return new TextEncoder().encode(resource as string) as Uint8Array<ArrayBuffer>;

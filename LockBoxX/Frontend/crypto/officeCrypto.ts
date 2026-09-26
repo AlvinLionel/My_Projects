@@ -539,7 +539,7 @@ export async function decryptEncryptedPackageKey(password: string, key: AgileEnc
     return aesCbcDecrypt(key.encryptedKeyValue, passwordKey, iv);
 }
 
-export async function lockDocxFile(file: File, password: string): Promise<Blob> {
+export async function lockFile(file: File, password: string): Promise<Blob> {
     const arrayBuffer = await file.arrayBuffer();
     const originalBytes = new Uint8Array(arrayBuffer);
     const verifier = await createPasswordVerifier(password);
@@ -558,7 +558,7 @@ export async function lockDocxFile(file: File, password: string): Promise<Blob> 
     );
 }
 
-export async function unlockDocxFile(file: File, password: string): Promise<Blob> {
+export async function unlockFile(file: File, password: string): Promise<Blob> {
     const arrayBuffer = await file.arrayBuffer();
     const cfb = CFB.read(new Uint8Array(arrayBuffer), { type: "array", });
     const encryptionInfoEntry = CFB.find(cfb, "EncryptionInfo");

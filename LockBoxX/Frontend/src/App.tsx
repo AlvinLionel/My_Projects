@@ -10,7 +10,7 @@ import { decryptRsaText, encryptRsaText, generateRsaKeyPair, type RsaAlgorithm }
 import { deriveSharedSecret, generateKeyExchangePair, type KeyExchangeAlgorithm } from "../crypto/keyExchange";
 import { createFolderArchive, createFolderArchiveFromDirectory, formatBytes, inspectFolderArchive, type FolderSummary } from "../crypto/folderArchive";
 import { lockPdf, unlockPdf, PdfEngineError } from "../Handlers/pdfHandler";
-import { lockDocx, unlockDocx } from "../Handlers/docxHandler";
+import { lockOfficeFile, unlockOfficeFile } from "../Handlers/officeDocxHandler";
 
 type Mode = "encrypt" | "decrypt";
 type WorkspaceMode = "encrypt" | "decrypt" | "lock" | "unlock";
@@ -69,14 +69,15 @@ const encryptionResourceTypes: Record<ResourceType, { name: string; description:
     },
 };
 
-const passwordResourceTypes: Record<passwordResourceType, { name: string; description: string; icon: string; browseLabel: string; dropTitle: string; dropHint: string; }> = {
+const passwordResourceTypes: Record<passwordResourceType, { name: string; description: string; icon: string; browseLabel: string; dropTitle: string; dropHint: string; accept: string }> = {
     pdf: {
         name: "PDF",
         description: "Password-protect PDF documents",
         icon: "📕",
-        browseLabel: "Browse PDF",
-        dropTitle: "Drop your PDF here",
+        browseLabel: "Browse PDF file",
+        dropTitle: "Drop your PDF file here",
         dropHint: "or click to browse for a PDF document",
+        accept: ".pdf,application/pdf"
     },
 
     docx: {
@@ -86,6 +87,25 @@ const passwordResourceTypes: Record<passwordResourceType, { name: string; descri
         browseLabel: "Browse Word document",
         dropTitle: "Drop your Word document here",
         dropHint: "or click to browse for a DOCX file",
+        accept: ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    },
+    pptx: {
+        name: "PowerPoint Presentation",
+        description: "Password-protect powerpoint presentation",
+        icon: "📊",
+        browseLabel: "Browse powerpoint presentation",
+        dropTitle: "Drop your powerpoint presentation here",
+        dropHint: "or click to browse for a PPTX file",
+        accept: ".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    },
+    xlsx: {
+        name: "Excel Spreadsheets",
+        description: "Password-protect excel spreadsheets",
+        icon: "📈",
+        browseLabel: "Browse excel spreadsheets",
+        dropTitle: "Drop your excel spreadsheets here",
+        dropHint: "or click to browse for a XLSX file",
+        accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     },
 };
 
@@ -806,9 +826,7 @@ function App() {
                                         {...(selectedResource === "folder" && mode === "encrypt" ? { webkitdirectory: "", multiple: true } : {})}
                                         accept={
                                             isLockMode
-                                                ? selectedpasswordResource === "pdf"
-                                                    ? ".pdf,application/pdf"
-                                                    : ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                                ? passwordResourceTypes[selectedpasswordResource].accept
                                                 : mode === "decrypt"
                                                     ? ".lbx,application/x-LockBoxX"
                                                     : selectedResource === "folder"
@@ -1526,7 +1544,7 @@ function App() {
 
                                                                     setOperationResult(`PDF locked: ${selectedFile.name}`);
                                                                 } else if (selectedpasswordResource === "docx") {
-                                                                    const lockedBlob = await lockDocx(selectedFile, inputPassword);
+                                                                    const lockedBlob = await lockOfficeFile(selectedFile, inputPassword);
 
                                                                     setLockedFile(
                                                                         new File(
@@ -1613,7 +1631,7 @@ function App() {
 
                                                                     setOperationResult(`PDF unlocked: ${selectedFile.name}`);
                                                                 } else if (selectedpasswordResource === "docx") {
-                                                                    const unlockedBlob = await unlockDocx(
+                                                                    const unlockedBlob = await unlockOfficeFile(
                                                                         selectedFile,
                                                                         inputPassword
                                                                     );
