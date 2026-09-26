@@ -13,7 +13,10 @@
     "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
     "@vercel/analytics": "^2.0.1",
+    "buffer": "^6.0.3",
+    "cfb": "^1.2.2",
     "jszip": "^3.10.2",
+    "officecrypto-tool": "^0.0.19",
     "qpdf-wasm": "^0.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

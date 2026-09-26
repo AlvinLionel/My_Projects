@@ -1537,6 +1537,23 @@ button {
     color: rgb(170 225 195 / 0.9);
 }
 
+.result-action-highlight {
+    animation: result-action-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes result-action-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 rgba(100, 140, 190, 0);
+    }
+
+    50% {
+        box-shadow:
+            0 0 0 2px rgba(100, 140, 190, 0.18),
+            0 0 18px rgba(100, 140, 190, 0.28);
+    }
+}
+
 /******** PREVIEW *********/
 
 .decrypted-preview {

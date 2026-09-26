@@ -1,5 +1,5 @@
 import initQPDF from "qpdf-wasm";
-import { CryptoError } from "./error";
+import { CryptoError } from "../crypto/error";
 
 type QpdfModule = Awaited<ReturnType<typeof initQPDF>>;
 
@@ -57,6 +57,7 @@ async function startQpdf(): Promise<QpdfModule> {
     clearTimeout(timer);
   }
 }
+
 function runQpdf(
   qpdf: QpdfModule,
   args: string[],

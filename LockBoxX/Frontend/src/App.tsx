@@ -1,14 +1,16 @@
-import "../styles/App.css";
 import { useState } from "react";
+
+import "../styles/App.css";
 import { encryptText, decryptText, decryptTextWithSharedSecret, encryptTextWithSharedSecret } from "../crypto/aes";
 import { createPackage, createRsaPackage, isPackageValid, unpackage } from "../crypto/package";
 import { CryptoError } from "../crypto/error";
-import { type ResourceType, encryptFile, encryptFileWithSharedSecret, decryptFile, decryptFileWithSharedSecret, downloadFile } from "../crypto/resourceCrypto";
+import { type ResourceType, encryptFile, encryptFileWithSharedSecret, decryptFile, decryptFileWithSharedSecret, downloadFile, type passwordResourceType } from "../crypto/resourceCrypto";
 import type { SymmetricAlgorithm } from "../crypto/KeyDerivation";
 import { decryptRsaText, encryptRsaText, generateRsaKeyPair, type RsaAlgorithm } from "../crypto/rsa";
 import { deriveSharedSecret, generateKeyExchangePair, type KeyExchangeAlgorithm } from "../crypto/keyExchange";
 import { createFolderArchive, createFolderArchiveFromDirectory, formatBytes, inspectFolderArchive, type FolderSummary } from "../crypto/folderArchive";
-import { lockPdf, unlockPdf, PdfEngineError } from "../crypto/pdfHandler";
+import { lockPdf, unlockPdf, PdfEngineError } from "../Handlers/pdfHandler";
+import { lockDocx, unlockDocx } from "../Handlers/docxHandler";
 
 type Mode = "encrypt" | "decrypt";
 type WorkspaceMode = "encrypt" | "decrypt" | "lock" | "unlock";
@@ -34,12 +36,7 @@ type Algorithm = {
 };
 type dropzoneProp = { title: string; hint: string };
 
-const resourceTypes: Record<ResourceType,
-    {
-        name: string;
-        description: string;
-        icon: string;
-    }> = {
+const encryptionResourceTypes: Record<ResourceType, { name: string; description: string; icon: string; }> = {
     text: {
         name: "Text",
         description: "Messages, notes and other text",
@@ -69,6 +66,26 @@ const resourceTypes: Record<ResourceType,
         name: "Folder",
         description: "Protect an entire folder",
         icon: "📁",
+    },
+};
+
+const passwordResourceTypes: Record<passwordResourceType, { name: string; description: string; icon: string; browseLabel: string; dropTitle: string; dropHint: string; }> = {
+    pdf: {
+        name: "PDF",
+        description: "Password-protect PDF documents",
+        icon: "📕",
+        browseLabel: "Browse PDF",
+        dropTitle: "Drop your PDF here",
+        dropHint: "or click to browse for a PDF document",
+    },
+
+    docx: {
+        name: "Word Document",
+        description: "Password-protect Word documents",
+        icon: "📝",
+        browseLabel: "Browse Word document",
+        dropTitle: "Drop your Word document here",
+        dropHint: "or click to browse for a DOCX file",
     },
 };
 
@@ -197,7 +214,7 @@ const algorithmCategories: Record<string, AlgorithmCategory> = {
         ] satisfies Algorithm[],
     }
 };
-const dropzoneProp: Record<WorkspaceMode, (resource: ResourceType) => dropzoneProp> = {
+const dropzoneProp: Record<WorkspaceMode, (resource: ResourceType, lockResource?: passwordResourceType) => dropzoneProp> = {
     encrypt: (resource) => ({
         title: `Drag and drop your ${resource} here`,
         hint: "or click to browse your device"
@@ -206,14 +223,15 @@ const dropzoneProp: Record<WorkspaceMode, (resource: ResourceType) => dropzonePr
         title: "Drag and drop your LockBoxX file here",
         hint: "Only .lbx encrypted files are accepted"
     }),
-    lock: () => ({
-        title: "Drag and drop the PDF you want to lock",
-        hint: "Only PDF files are accepted"
+    lock: (_, lockResource = "pdf") => ({
+        title: passwordResourceTypes[lockResource].dropTitle,
+        hint: passwordResourceTypes[lockResource].dropHint,
     }),
-    unlock: () => ({
-        title: "Drag and drop your locked PDF here",
-        hint: "Only password-protected PDFs, password required"
-    })
+
+    unlock: (_, lockResource = "pdf") => ({
+        title: `Drag and drop your locked ${passwordResourceTypes[lockResource].name} here`,
+        hint: `Only password-protected ${passwordResourceTypes[lockResource].name} files are accepted`,
+    }),
 };
 
 function downloadPrivateKey(privateKey: string, algorithm: RsaAlgorithm): void {
@@ -262,28 +280,31 @@ function App() {
     const [sharedSecret, setSharedSecret] = useState("");
     const [showSharedSecret, setShowSharedSecret] = useState(false);
     const [exchangeError, setExchangeError] = useState("");
+    const [selectedpasswordResource, setSelectedPasswordResource] = useState<passwordResourceType>("pdf");
+    const [highlightActionButtons, setHighlightActionButtons] = useState(false);
 
+    const isLockMode = workspaceMode === "lock" || workspaceMode === "unlock";
     const selectedAlgorithmConfig =
         Object.values(algorithmCategories)
             .flatMap(category => category.algorithms)
             .find(algorithm => algorithm.id === selectedAlgorithm);
-    const isLockMode = workspaceMode === "lock" || workspaceMode === "unlock";
-    const dropzone = workspaceMode ? dropzoneProp[workspaceMode](selectedResource) : null;
-
+    const dropzone =
+        workspaceMode
+            ? dropzoneProp[workspaceMode](selectedResource, selectedpasswordResource)
+            : null;
     const availableAlgorithms = Object.values(algorithmCategories)
         .flatMap(category => category.algorithms)
         .filter(algorithm =>
             algorithm.supports.includes(selectedResource)
         );
-
     const hasResource =
-        selectedResource === "text"
-            ? resourceText.trim().length > 0
-            : selectedFile !== null;
+        isLockMode
+            ? selectedFile !== null : selectedResource === "text"
+                ? resourceText.trim().length > 0 : selectedFile !== null;
     const resourceRequirementMessage =
         selectedResource === "text"
             ? "Enter text before starting this operation."
-            : `Upload a ${resourceTypes[selectedResource].name.toLowerCase()} before starting this operation.`;
+            : `Upload a ${encryptionResourceTypes[selectedResource].name.toLowerCase()} before starting this operation.`;
     const keyRequirementMessage =
         mode === "encrypt"
             ? "Enter a public key or generate a key pair before starting this operation."
@@ -321,11 +342,11 @@ function App() {
                 workspace: "lock",
                 mode: "encrypt",
                 icon: "🔐",
-                label: "Create Lock",
-                description: "Password-protect a PDF",
+                label: "Create Password Lock",
+                description: "Password-protect supported files",
                 defaults: () => {
-                    setSelectedResource("file");
-                    setSelectedAlgorithm("AES-256-GCM");
+                    setSelectedPasswordResource("pdf");
+                    setSelectedFile(null);
                     setResourceText("");
                 }
             },
@@ -333,11 +354,11 @@ function App() {
                 workspace: "unlock",
                 mode: "decrypt",
                 icon: "🔓",
-                label: "Remove Lock",
-                description: "Remove a PDF password protection",
+                label: "Remove Password Lock",
+                description: "Remove password protection from supported files",
                 defaults: () => {
                     setSelectedResource("file");
-                    setSelectedAlgorithm("AES-256-GCM");
+                    setSelectedFile(null);
                     setResourceText("");
                 }
             },
@@ -381,6 +402,12 @@ function App() {
         setSelectedFile(null);
         setFolderSummary(null);
         setDecryptedFolderSummary(null);
+        setUploadError("");
+    };
+
+    const handlePasswordResourceChange = (resourceType: passwordResourceType) => {
+        setSelectedPasswordResource(resourceType);
+        setSelectedFile(null);
         setUploadError("");
     };
 
@@ -480,6 +507,9 @@ function App() {
                                     onClick={() => {
                                         setWorkspaceMode(opt.workspace);
                                         setMode(opt.mode);
+                                        if (opt.workspace === "lock") {
+                                            setSelectedResource("file");
+                                        }
                                         opt.defaults?.();
                                     }}>
                                     <span className="mode-icon">{opt.icon}</span>
@@ -532,43 +562,74 @@ function App() {
                             </div>
                             <label className="field-label">
                                 {isLockMode
-                                    ? mode === "encrypt"
-                                        ? "Choose a PDF to password-protect"
-                                        : "Choose a password-protected PDF"
-                                    : mode === "encrypt"
-                                        ? isLockMode ? "What would you like to lock?" : "What would you like to secure?"
-                                        : isLockMode ? "What would you like to unlock?" : "What would you like unlocked?"
+                                    ? mode === "encrypt" ? `What would you like to password-protect?` : `What would you like to unlock?`
+                                    : mode === "encrypt" ? "What would you like to secure?" : "What would you like unlocked?"
                                 }
                             </label>
 
                             {/**************RESOURCES **************/}
 
-                            {!isLockMode && <div className="resource-grid">
-                                {(
-                                    Object.entries(resourceTypes) as [
-                                        ResourceType,
-                                        typeof resourceTypes[ResourceType]
-                                    ][]
-                                ).map(([type, resource]) => {
-                                    const isSelected = selectedResource === type;
+                            {isLockMode ? (
+                                <div className="resource-grid">
+                                    {(
+                                        Object.entries(passwordResourceTypes) as [
+                                            passwordResourceType,
+                                            typeof passwordResourceTypes[passwordResourceType]
+                                        ][]
+                                    ).map(([type, resource]) => {
+                                        const isSelected = selectedpasswordResource === type;
 
-                                    return (
-                                        <button key={type} type="button"
-                                            className={`resource-card ${isSelected ? "selected" : ""}`}
-                                            onClick={() => handleResourceChange(type)}
-                                        >
-                                            <span className="resource-icon">{resource.icon}</span>
+                                        return (
+                                            <button key={type} type="button"
+                                                className={`resource-card ${isSelected ? "selected" : ""}`}
+                                                onClick={() => handlePasswordResourceChange(type)}
+                                            >
+                                                <span className="resource-icon">
+                                                    {resource.icon}
+                                                </span>
 
-                                            <span className="resource-info">
-                                                <strong>{resource.name}</strong>
-                                                <small>{resource.description}</small>
-                                            </span>
+                                                <span className="resource-info">
+                                                    <strong>{resource.name}</strong>
+                                                    <small>{resource.description}</small>
+                                                </span>
 
-                                            {isSelected && (<span className="resource-check">✓ </span>)}
-                                        </button>
-                                    );
-                                })}
-                            </div>}
+                                                {isSelected && (
+                                                    <span className="resource-check">✓</span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="resource-grid">
+                                    {(
+                                        Object.entries(encryptionResourceTypes) as [
+                                            ResourceType,
+                                            typeof encryptionResourceTypes[ResourceType]
+                                        ][]
+                                    ).map(([type, resource]) => {
+                                        const isSelected = selectedResource === type;
+
+                                        return (
+                                            <button key={type} type="button"
+                                                className={`resource-card ${isSelected ? "selected" : ""}`}
+                                                onClick={() => handleResourceChange(type)}
+                                            >
+                                                <span className="resource-icon">{resource.icon}</span>
+
+                                                <span className="resource-info">
+                                                    <strong>{resource.name}</strong>
+                                                    <small>{resource.description}</small>
+                                                </span>
+
+                                                {isSelected && (
+                                                    <span className="resource-check">✓ </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
 
                             {!isLockMode && selectedResource === "text" ? (
                                 <textarea className="text-input"
@@ -579,7 +640,9 @@ function App() {
                                     onChange={(event) => setResourceText(event.target.value)}
                                 ></textarea>
                             ) : (
+
                                 /************** DROP ZONE **************/
+
                                 <div className={`drop-zone ${isDragging ? "dragging" : ""}`}
                                     onClick={() => selectedResource === "folder" && mode === "encrypt" ? void handleFolderPicker() : document.getElementById("resource-upload")?.click()}
                                     onDragOver={(e) => {
@@ -729,12 +792,12 @@ function App() {
                                                 }
                                             }}
                                             >
-                                                {selectedFile ? "Change file"
+                                                {selectedFile
+                                                    ? "Change file"
                                                     : isLockMode
-                                                        ? "Browse PDF"
-                                                        : mode === "decrypt"
-                                                            ? "Browse .lbx file"
-                                                            : "Browse files"}
+                                                        ? passwordResourceTypes[selectedpasswordResource].browseLabel
+                                                        : mode === "decrypt" ? "Browse .lbx file" : "Browse files"
+                                                }
                                             </button>
                                         </>
                                     )}
@@ -743,7 +806,9 @@ function App() {
                                         {...(selectedResource === "folder" && mode === "encrypt" ? { webkitdirectory: "", multiple: true } : {})}
                                         accept={
                                             isLockMode
-                                                ? ".pdf,application/pdf"
+                                                ? selectedpasswordResource === "pdf"
+                                                    ? ".pdf,application/pdf"
+                                                    : ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                                 : mode === "decrypt"
                                                     ? ".lbx,application/x-LockBoxX"
                                                     : selectedResource === "folder"
@@ -780,8 +845,15 @@ function App() {
                                             }
 
                                             if (isLockMode) {
-                                                if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-                                                    setUploadError("Please select a PDF file.");
+                                                const isValidLockResource =
+                                                    selectedpasswordResource === "pdf"
+                                                        ? file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+                                                        : file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.name.toLowerCase().endsWith(".docx");
+
+                                                if (!isValidLockResource) {
+                                                    setUploadError(
+                                                        selectedpasswordResource === "pdf" ? "Please select a PDF file." : "Please select a Word document (.docx)."
+                                                    );
                                                     e.target.value = "";
                                                     return;
                                                 }
@@ -882,7 +954,7 @@ function App() {
                                                                         </div>
                                                                         {!isSupported && (
                                                                             <span className="unsupported-reason">
-                                                                                Not suitable for {resourceTypes[selectedResource].name}
+                                                                                Not suitable for {encryptionResourceTypes[selectedResource].name}
                                                                             </span>
                                                                         )}
                                                                         <div className={`algorithm-badge ${algorithm.badgeType === "recommended" ? "recommended" : ""}`}>
@@ -1202,17 +1274,13 @@ function App() {
                                                         className={
                                                             index < processingStep
                                                                 ? "complete"
-                                                                : index === processingStep
-                                                                    ? "active"
-                                                                    : ""
+                                                                : index === processingStep ? "active" : ""
                                                         }
                                                     >
                                                         <span>
                                                             {index < processingStep
                                                                 ? "✓"
-                                                                : index === processingStep
-                                                                    ? "●"
-                                                                    : "○"}
+                                                                : index === processingStep ? "●" : "○"}
                                                         </span>
                                                         {step}
                                                     </div>
@@ -1260,9 +1328,15 @@ function App() {
                                                         </span>
                                                         <span>{isLockMode ? "PASSWORD PROTECTED" : selectedAlgorithm}</span>
                                                     </div>
-                                                    {/**************RESULT DISPLAY SECTION **************/}
+                                                    {/**************PREVIEW DISPLAY SECTION **************/}
                                                     <div className="result-box">
-                                                        {mode === "decrypt" && decryptedFile && decryptedFolderSummary ? (
+                                                        {mode === "encrypt" && isLockMode ? (
+                                                            <div className="encryption-complete-preview">
+                                                                <div className="generic-file-preview">
+                                                                    🔒 <span>Resource encrypted and ready to download</span>
+                                                                </div>
+                                                            </div>
+                                                        ) : mode === "decrypt" && decryptedFile && decryptedFolderSummary ? (
                                                             <div className="decrypted-preview folder-preview">
                                                                 <div className="file-info">
                                                                     <strong>{decryptedFolderSummary.folderName}</strong>
@@ -1300,29 +1374,47 @@ function App() {
                                                                     </div>
                                                                 )}
                                                             </div>
+                                                        ) : isLockMode && mode === "encrypt" && lockedFile ? (
+                                                            <div className="decrypted-preview">
+                                                                <div className="file-info">
+                                                                    <strong> {lockedFile.name} </strong>
+                                                                    <span>
+                                                                        {lockedFile.type || "Protected file"} .{" "}
+                                                                        {(lockedFile.size / 1024 / 1024).toFixed(2)}MB
+                                                                    </span>
+                                                                </div>
+                                                                <div className="generic-file-preview">
+                                                                    🔐 <span>Password-protected file ready to download</span>
+                                                                </div>
+                                                            </div>
                                                         ) : (
-                                                            operationResult
+                                                            <div className="generic-file-preview">
+                                                                🔒 <span>Resource protected and ready to download</span>
+                                                            </div>
                                                         )}
                                                     </div>
                                                     {/**************COPY & DOWNLOAD BUTTONS **************/}
                                                     <div className="result-actions">
-                                                        <button
-                                                            className={`result-action ${copied ? "done" : ""}`}
-                                                            onClick={async () => {
-                                                                if (!operationResult) return;
+                                                        {selectedResource === "text" && (
+                                                            <button
+                                                                className={`result-action ${copied ? "done" : ""} ${highlightActionButtons ? "result-action-highlight" : ""}`}
+                                                                onClick={async () => {
+                                                                    if (!operationResult) return;
 
-                                                                await navigator.clipboard.writeText(operationResult);
+                                                                    await navigator.clipboard.writeText(operationResult);
 
-                                                                setCopied(true);
-                                                                setTimeout(() => {
-                                                                    setCopied(false);
-                                                                }, 3000);
-                                                            }}
-                                                        >
-                                                            {copied ? "✓ Copied" : "⧉ Copy"}
-                                                        </button>
+                                                                    setCopied(true);
+                                                                    setHighlightActionButtons(false);
+                                                                    setTimeout(() => {
+                                                                        setCopied(false);
+                                                                    }, 3000);
+                                                                }}
+                                                            >
+                                                                {copied ? "✓ Copied" : "⧉ Copy"}
+                                                            </button>
+                                                        )}
                                                         <button
-                                                            className={`result-action ${downloaded ? "done" : ""}`}
+                                                            className={`result-action ${downloaded ? "done" : ""} ${highlightActionButtons ? "result-action-highlight" : ""}`}
                                                             disabled={(mode === "decrypt" && !decryptedFile) || (isLockMode && mode === "encrypt" && !lockedFile)}
                                                             onClick={() => {
                                                                 if (isLockMode && mode === "encrypt") {
@@ -1355,6 +1447,7 @@ function App() {
                                                                     URL.revokeObjectURL(url);
                                                                 }
                                                                 setDownloaded(true);
+                                                                setHighlightActionButtons(false);
                                                                 setTimeout(() => {
                                                                     setDownloaded(false);
                                                                 }, 3000);
@@ -1368,7 +1461,7 @@ function App() {
                                                                         ? decryptedFolderSummary
                                                                             ? `↓ Download ${decryptedFolderSummary.folderName}.zip`
                                                                             : `↓ Download ${decryptedFile.name}`
-                                                                        : "↓ Download"}
+                                                                        : "↓ Download encrypted file"}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1383,7 +1476,10 @@ function App() {
                                                 onClick={() => { resetOperation(); }}
                                             >
                                                 <span>↻</span>
-                                                {mode === "encrypt" ? isLockMode ? "Lock Another Resource" : "Encrypt Another Resource" : isLockMode ? "Remove Another Lock" : "Decrypt Another Resource"}
+                                                {mode === "encrypt"
+                                                    ? isLockMode ? "Lock Another Resource" : "Encrypt Another Resource"
+                                                    : isLockMode ? "Remove Another Lock" : "Decrypt Another Resource"
+                                                }
                                             </button>
                                         </div>
                                     ) : (
@@ -1410,13 +1506,38 @@ function App() {
                                                         if (mode === "encrypt") {
                                                             if (isLockMode) {
                                                                 if (!selectedFile) {
-                                                                    setOperationError("Please select a PDF file first");
+                                                                    setOperationError(
+                                                                        selectedpasswordResource === "pdf" ? "Please select a PDF file first." : "Please select a Word document first."
+                                                                    );
                                                                     setIsProcessing(false);
                                                                     return;
                                                                 }
-                                                                const lockedBlob = await lockPdf(selectedFile, inputPassword);
-                                                                setLockedFile(new File([lockedBlob], `locked-${selectedFile.name}`, { type: "application/pdf" }));
-                                                                setOperationResult(`PDF locked: ${selectedFile.name}`);
+
+                                                                if (selectedpasswordResource === "pdf") {
+                                                                    const lockedBlob = await lockPdf(selectedFile, inputPassword);
+
+                                                                    setLockedFile(
+                                                                        new File(
+                                                                            [lockedBlob],
+                                                                            `locked-${selectedFile.name}`,
+                                                                            { type: "application/pdf" }
+                                                                        )
+                                                                    );
+
+                                                                    setOperationResult(`PDF locked: ${selectedFile.name}`);
+                                                                } else if (selectedpasswordResource === "docx") {
+                                                                    const lockedBlob = await lockDocx(selectedFile, inputPassword);
+
+                                                                    setLockedFile(
+                                                                        new File(
+                                                                            [lockedBlob],
+                                                                            `locked-${selectedFile.name}`,
+                                                                            { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }
+                                                                        )
+                                                                    );
+
+                                                                    setOperationResult(`Word document locked: ${selectedFile.name}`);
+                                                                }
                                                             } else if (selectedResource === "text") {
                                                                 if (selectedAlgorithmConfig?.operation === "key-exchange") {
                                                                     const secret = await deriveSharedSecret(selectedAlgorithm as KeyExchangeAlgorithm, exchangePrivateKey, peerPublicKey);
@@ -1448,8 +1569,7 @@ function App() {
                                                                         selectedFile,
                                                                         selectedResource,
                                                                         await deriveSharedSecret(selectedAlgorithm as KeyExchangeAlgorithm, exchangePrivateKey, peerPublicKey),
-                                                                        setProcessingStep
-                                                                    )
+                                                                        setProcessingStep)
                                                                     : await encryptFile(selectedFile, selectedResource, inputPassword, setProcessingStep, "AES-256-GCM");
 
                                                                 const encryptedPackage = createPackage(result, {
@@ -1468,13 +1588,51 @@ function App() {
                                                         } else {
                                                             if (isLockMode) {
                                                                 if (!selectedFile) {
-                                                                    setOperationError("Please select a locked PDF file first.");
+                                                                    setOperationError(
+                                                                        selectedpasswordResource === "pdf"
+                                                                            ? "Please select a locked PDF file first."
+                                                                            : "Please select a locked Word document first."
+                                                                    );
                                                                     setIsProcessing(false);
                                                                     return;
                                                                 }
-                                                                const unlockedBlob = await unlockPdf(selectedFile, inputPassword);
-                                                                setDecryptedFile(new File([unlockedBlob], `unlocked-${selectedFile.name}`, { type: "application/pdf" }));
-                                                                setOperationResult(`PDF unlocked: ${selectedFile.name}`);
+
+                                                                if (selectedpasswordResource === "pdf") {
+                                                                    const unlockedBlob = await unlockPdf(
+                                                                        selectedFile,
+                                                                        inputPassword
+                                                                    );
+
+                                                                    setDecryptedFile(
+                                                                        new File(
+                                                                            [unlockedBlob],
+                                                                            `unlocked-${selectedFile.name}`,
+                                                                            { type: "application/pdf" }
+                                                                        )
+                                                                    );
+
+                                                                    setOperationResult(`PDF unlocked: ${selectedFile.name}`);
+                                                                } else if (selectedpasswordResource === "docx") {
+                                                                    const unlockedBlob = await unlockDocx(
+                                                                        selectedFile,
+                                                                        inputPassword
+                                                                    );
+
+                                                                    setDecryptedFile(
+                                                                        new File(
+                                                                            [unlockedBlob],
+                                                                            `unlocked-${selectedFile.name}`,
+                                                                            {
+                                                                                type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                                                            }
+                                                                        )
+                                                                    );
+
+                                                                    setOperationResult(
+                                                                        `Word document unlocked: ${selectedFile.name}`
+                                                                    );
+                                                                }
+
                                                             } else if (selectedResource === "text") {
                                                                 const packageData = unpackage(resourceText);
                                                                 if (isLockMode && packageData.protectionMode !== "lock") {
@@ -1532,12 +1690,14 @@ function App() {
                                                         setProcessingStep(processingSteps.length);
                                                         setIsProcessing(false);
                                                         setOperationComplete(true);
+                                                        setHighlightActionButtons(true);
 
                                                     } catch (error) {
                                                         console.error("Operation failed: ", error);
 
                                                         setIsProcessing(false);
                                                         setOperationComplete(false);
+                                                        setHighlightActionButtons(false);
 
                                                         if (error instanceof CryptoError) {
                                                             switch (error.code) {
@@ -1594,7 +1754,7 @@ function App() {
                                             ) : keyMaterialMissing ? (
                                                 <p className="action-reason" role="status">
                                                     {isLockMode
-                                                        ? "Enter the pdf password before continuing with this operation"
+                                                        ? `Enter the ${selectedpasswordResource} password before continuing with this operation`
                                                         : selectedAlgorithmConfig?.operation === "key-exchange"
                                                             ? mode === "encrypt"
                                                                 ? "Generate your key pair and enter the peer public key before encrypting."

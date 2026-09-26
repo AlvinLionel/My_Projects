@@ -3,14 +3,13 @@ import { base64ToBytes, parsePackage } from "./package";
 import type { SymmetricAlgorithm } from "./KeyDerivation";
 
 export type ResourceType = "text" | "file" | "image" | "audio" | "video" | "folder";
+export type passwordResourceType = "pdf" | "docx";
 
 export async function resourceToBytes(resource: string | File, resourceType: ResourceType): Promise<Uint8Array<ArrayBuffer>> {
-    if (resourceType === "text")
-        return new TextEncoder().encode(resource as string) as Uint8Array<ArrayBuffer>;
+    if (resourceType === "text") return new TextEncoder().encode(resource as string) as Uint8Array<ArrayBuffer>;
 
     if (resourceType === "file" || resourceType === "image" || resourceType === "audio" || resourceType === "video" || resourceType === "folder") {
-        if (!(resource instanceof File))
-            throw new Error("A file resource is required");
+        if (!(resource instanceof File)) throw new Error("A file resource is required");
 
         const buffer = await resource.arrayBuffer();
         return new Uint8Array(buffer) as Uint8Array<ArrayBuffer>;
@@ -25,8 +24,7 @@ export async function encryptResource(resource: string | File, resourceType: Res
 }
 export async function decryptResource(ciphertext: Uint8Array<ArrayBuffer>, password: string, salt: Uint8Array<ArrayBuffer>, iv: Uint8Array<ArrayBuffer>, resourceType: ResourceType, algorithm: SymmetricAlgorithm = "AES-256-GCM"): Promise<string | Uint8Array> {
     const decryptedBytes = await decryptBytes(ciphertext, password, salt, iv, undefined, algorithm);
-    if (resourceType === "text")
-        return new TextDecoder().decode(decryptedBytes);
+    if (resourceType === "text") return new TextDecoder().decode(decryptedBytes);
 
     return decryptedBytes;
 }
