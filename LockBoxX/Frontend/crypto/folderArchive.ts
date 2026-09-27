@@ -17,7 +17,8 @@ export interface FolderEntry {
     directory: boolean;
 }
 
-export const MAX_FOLDER_BYTES = 100 * 1024 * 1024;
+export const MAX_FOLDER_BYTES = 500 * 1024 * 1024;
+export const MAX_FOLDER_SIZE_MESSAGE = `This folder is too large for safe browser-only processing. Please choose a folder smaller than ${MAX_FOLDER_BYTES / (1024 * 1024)} MB.`;
 
 export function getRelativePath(file: File): string {
     const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
@@ -29,25 +30,26 @@ export function getFolderName(files: File[]): string {
     return firstPath.includes("/") ? firstPath.split("/")[0] : "Selected folder";
 }
 
-export function collectFileListEntries(files:File[]):FolderEntry[]{
-    return files.map(file => ({path:getRelativePath(file), file,directory:false}));
+export function collectFileListEntries(files: File[]): FolderEntry[] {
+    return files.map(file => ({ path: getRelativePath(file), file, directory: false }));
 }
 
-export async function collectDirectoryEntries(directory:FileSystemDirectoryHandle):Promise<FolderEntry[]>{
+export async function collectDirectoryEntries(directory: FileSystemDirectoryHandle): Promise<FolderEntry[]> {
     const entries: FolderEntry[] = [];
 
-    async function visit(handle:FileSystemDirectoryHandle,parentPath:string):Promise<void>{
-        for await (const[name,entry] of handle.entries()){
+    async function visit(handle: FileSystemDirectoryHandle, parentPath: string): Promise<void> {
+        for await (const [name, entry] of handle.entries()) {
             const path = `${parentPath}/${name}`;
-            if(entry.kind === "file"){
-                entries.push({path,file:await entry.getFile(),directory:false});
-            }else{
-                entries.push({path:`${path}/`,directory:true});
-                await visit(entry,path);
+            if (entry.kind === "file") {
+                entries.push({ path, file: await entry.getFile(), directory: false });
+            } else {
+                entries.push({ path: `${path}/`, directory: true });
+                await visit(entry, path);
             }
         }
     }
-    await visit(directory,directory.name);
+
+    await visit(directory, directory.name);
     return entries;
 }
 
@@ -57,7 +59,7 @@ async function createArchive(entries: FolderEntry[], folderName: string): Promis
     if (files.length === 0) throw new CryptoError("EMPTY_FOLDER", "The selected folder is empty.");
 
     const totalBytes = files.reduce((total, entry) => total + (entry.file?.size ?? 0), 0);
-    if (totalBytes > MAX_FOLDER_BYTES) throw new CryptoError("RESOURCE_TOO_LARGE", "This folder is too large for safe browser-only processing. Please choose a folder smaller than 100 MB.");
+    if (totalBytes > MAX_FOLDER_BYTES) throw new CryptoError("RESOURCE_TOO_LARGE", MAX_FOLDER_SIZE_MESSAGE);
 
     try {
         const zip = new JSZip();
@@ -90,7 +92,7 @@ async function createArchive(entries: FolderEntry[], folderName: string): Promis
                 fileCount: files.length,
                 folderCount: folders.size,
                 size: archiveFile.size,
-            }
+            },
         };
     } catch (error) {
         if (error instanceof CryptoError) throw error;
@@ -102,13 +104,13 @@ async function createArchive(entries: FolderEntry[], folderName: string): Promis
 export async function createFolderArchive(files: File[]): Promise<FolderArchive> {
     if (files.length === 0) throw new CryptoError("EMPTY_FOLDER", "The selected folder is empty.");
 
-    return createArchive( collectFileListEntries(files), getFolderName(files));
+    return createArchive(collectFileListEntries(files), getFolderName(files));
 }
 
 export async function createFolderArchiveFromDirectory(directory: FileSystemDirectoryHandle): Promise<FolderArchive> {
     const entries = await collectDirectoryEntries(directory);
 
-    return createArchive(entries,directory.name);
+    return createArchive(entries, directory.name);
 }
 
 export async function inspectFolderArchive(file: File, fallbackName = "Restored folder"): Promise<FolderSummary> {

@@ -92,9 +92,12 @@ export interface ResourceMetadata {
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {
+    const CHUNK_SIZE = 0x8000;
     let binary = "";
 
-    for (const byte of bytes) binary += String.fromCharCode(byte);
+    for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE) as unknown as number[]);
+    }
 
     return btoa(binary);
 }
