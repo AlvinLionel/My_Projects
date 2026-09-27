@@ -91,7 +91,7 @@ export interface ResourceMetadata {
     senderPublicKey?: string;
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Uint8Array): string {
     let binary = "";
 
     for (const byte of bytes) binary += String.fromCharCode(byte);

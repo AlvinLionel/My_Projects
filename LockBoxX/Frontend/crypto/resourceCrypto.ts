@@ -1,9 +1,11 @@
 import { decryptBytes, decryptBytesWithSharedSecret, encryptBytes, encryptBytesWithSharedSecret, type CryptoProgress, type EncryptionResult } from "./aes";
 import { base64ToBytes, parsePackage } from "./package";
 import type { SymmetricAlgorithm } from "./KeyDerivation";
+import type { selfDecryptingResourceType } from "./selfDecryptingHtml";
 
 export type ResourceType = "text" | "file" | "image" | "audio" | "video" | "folder";
 export type passwordResourceType = "pdf" | "docx" | "xlsx"| "pptx";
+export type LockableResourceTypes = passwordResourceType | selfDecryptingResourceType;
 
 export async function resourceToBytes(resource: string | File, resourceType: ResourceType): Promise<Uint8Array<ArrayBuffer>> {
     if (resourceType === "text") return new TextEncoder().encode(resource as string) as Uint8Array<ArrayBuffer>;

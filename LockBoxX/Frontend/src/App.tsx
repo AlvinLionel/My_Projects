@@ -4,13 +4,15 @@ import "../styles/App.css";
 import { encryptText, decryptText, decryptTextWithSharedSecret, encryptTextWithSharedSecret } from "../crypto/aes";
 import { createPackage, createRsaPackage, isPackageValid, unpackage } from "../crypto/package";
 import { CryptoError } from "../crypto/error";
-import { type ResourceType, encryptFile, encryptFileWithSharedSecret, decryptFile, decryptFileWithSharedSecret, downloadFile, type passwordResourceType } from "../crypto/resourceCrypto";
+import { type ResourceType, encryptFile, encryptFileWithSharedSecret, decryptFile, decryptFileWithSharedSecret, downloadFile, type passwordResourceType, type LockableResourceTypes } from "../crypto/resourceCrypto";
 import type { SymmetricAlgorithm } from "../crypto/KeyDerivation";
 import { decryptRsaText, encryptRsaText, generateRsaKeyPair, type RsaAlgorithm } from "../crypto/rsa";
 import { deriveSharedSecret, generateKeyExchangePair, type KeyExchangeAlgorithm } from "../crypto/keyExchange";
 import { createFolderArchive, createFolderArchiveFromDirectory, formatBytes, inspectFolderArchive, type FolderSummary } from "../crypto/folderArchive";
 import { lockPdf, unlockPdf, PdfEngineError } from "../Handlers/pdfHandler";
 import { lockOfficeFile, unlockOfficeFile } from "../Handlers/officeDocxHandler";
+import type { selfDecryptingResourceType } from "../crypto/selfDecryptingHtml";
+import { lockMediaToHtml } from "../Handlers/mediaHandler";
 
 type Mode = "encrypt" | "decrypt";
 type WorkspaceMode = "encrypt" | "decrypt" | "lock" | "unlock";
@@ -79,7 +81,6 @@ const passwordResourceTypes: Record<passwordResourceType, { name: string; descri
         dropHint: "or click to browse for a PDF document",
         accept: ".pdf,application/pdf"
     },
-
     docx: {
         name: "Word Document",
         description: "Password-protect Word documents",
@@ -107,6 +108,51 @@ const passwordResourceTypes: Record<passwordResourceType, { name: string; descri
         dropHint: "or click to browse for a XLSX file",
         accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     },
+};
+
+const selfDecryptingResourceTypes: Record<selfDecryptingResourceType, typeof passwordResourceTypes[passwordResourceType]> = {
+    image: {
+        name: "Image",
+        description: "Password-protect an image as a self-opening page",
+        icon: "🖼️",
+        browseLabel: "Browse image file",
+        dropTitle: "Drop your image here",
+        dropHint: "or click to browse for a JPG, PNG, GIF, etc.",
+        accept: "image/*",
+    },
+    audio: {
+        name: "Audio",
+        description: "Password-protect audio as a self-opening page",
+        icon: "🎵",
+        browseLabel: "Browse audio file",
+        dropTitle: "Drop your audio file here",
+        dropHint: "or click to browse for an MP3, WAV, etc.",
+        accept: "audio/*",
+    },
+    video: {
+        name: "Video",
+        description: "Password-protect a video as a self-opening page",
+        icon: "🎬",
+        browseLabel: "Browse video file",
+        dropTitle: "Drop your video here",
+        dropHint: "or click to browse for an MP4, MOV, etc.",
+        accept: "video/*",
+    },
+};
+
+const lockableResourceTypes: Record<LockableResourceTypes, typeof passwordResourceTypes[passwordResourceType]> = {
+    ...passwordResourceTypes,
+    ...selfDecryptingResourceTypes,
+};
+
+const lockHandlers: Record<LockableResourceTypes, { lock: (file: File, password: string) => Promise<Blob>; mimeType: string; outputFileName: (name: string) => string; }> = {
+    pdf: { lock: lockPdf, mimeType: "application/pdf", outputFileName: (n) => `locked-${n}` },
+    docx: { lock: lockOfficeFile, mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", outputFileName: (n) => `locked-${n}` },
+    xlsx: { lock: lockOfficeFile, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", outputFileName: (n) => `locked-${n}` },
+    pptx: { lock: lockOfficeFile, mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", outputFileName: (n) => `locked-${n}` },
+    image: { lock: (f, p) => lockMediaToHtml(f, "image", p), mimeType: "text/html", outputFileName: (n) => `locked-${n}.html` },
+    audio: { lock: (f, p) => lockMediaToHtml(f, "audio", p), mimeType: "text/html", outputFileName: (n) => `locked-${n}.html` },
+    video: { lock: (f, p) => lockMediaToHtml(f, "video", p), mimeType: "text/html", outputFileName: (n) => `locked-${n}.html` },
 };
 
 const algorithmCategories: Record<string, AlgorithmCategory> = {
@@ -234,7 +280,7 @@ const algorithmCategories: Record<string, AlgorithmCategory> = {
         ] satisfies Algorithm[],
     }
 };
-const dropzoneProp: Record<WorkspaceMode, (resource: ResourceType, lockResource?: passwordResourceType) => dropzoneProp> = {
+const dropzoneProp: Record<WorkspaceMode, (resource: ResourceType, lockResource?: LockableResourceTypes) => dropzoneProp> = {
     encrypt: (resource) => ({
         title: `Drag and drop your ${resource} here`,
         hint: "or click to browse your device"
@@ -244,13 +290,13 @@ const dropzoneProp: Record<WorkspaceMode, (resource: ResourceType, lockResource?
         hint: "Only .lbx encrypted files are accepted"
     }),
     lock: (_, lockResource = "pdf") => ({
-        title: passwordResourceTypes[lockResource].dropTitle,
-        hint: passwordResourceTypes[lockResource].dropHint,
+        title: lockableResourceTypes[lockResource].dropTitle,
+        hint: lockableResourceTypes[lockResource].dropHint,
     }),
 
     unlock: (_, lockResource = "pdf") => ({
-        title: `Drag and drop your locked ${passwordResourceTypes[lockResource].name} here`,
-        hint: `Only password-protected ${passwordResourceTypes[lockResource].name} files are accepted`,
+        title: `Drag and drop your locked ${lockableResourceTypes[lockResource].name} here`,
+        hint: `Only password-protected ${lockableResourceTypes[lockResource].name} files are accepted`,
     }),
 };
 
@@ -265,6 +311,18 @@ function downloadPrivateKey(privateKey: string, algorithm: RsaAlgorithm): void {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+}
+
+function fileMatchesAccept(file: File, accept: string): boolean {
+    const patterns = accept.split(",").map((p) => p.trim().toLowerCase());
+    const fileName = file.name.toLowerCase();
+    const fileType = file.type.toLowerCase();
+
+    return patterns.some((pattern) => {
+        if (pattern.startsWith(".")) return fileName.endsWith(pattern);
+        if (pattern.endsWith("/*")) return fileType.startsWith(pattern.slice(0, -1));
+        return fileType === pattern;
+    });
 }
 
 function App() {
@@ -300,7 +358,7 @@ function App() {
     const [sharedSecret, setSharedSecret] = useState("");
     const [showSharedSecret, setShowSharedSecret] = useState(false);
     const [exchangeError, setExchangeError] = useState("");
-    const [selectedpasswordResource, setSelectedPasswordResource] = useState<passwordResourceType>("pdf");
+    const [selectedpasswordResource, setSelectedPasswordResource] = useState<LockableResourceTypes>("pdf");
     const [highlightActionButtons, setHighlightActionButtons] = useState(false);
 
     const isLockMode = workspaceMode === "lock" || workspaceMode === "unlock";
@@ -425,7 +483,7 @@ function App() {
         setUploadError("");
     };
 
-    const handlePasswordResourceChange = (resourceType: passwordResourceType) => {
+    const handlePasswordResourceChange = (resourceType: LockableResourceTypes) => {
         setSelectedPasswordResource(resourceType);
         setSelectedFile(null);
         setUploadError("");
@@ -562,7 +620,7 @@ function App() {
 
                                 <span>
                                     {isLockMode
-                                        ? mode === "encrypt" ? "Password-protect a PDF" : "Release a PDF from a password lock"
+                                        ? mode === "encrypt" ? "Password-protect your resource" : "Release a resource from a password lock"
                                         : mode === "encrypt" ? "Fully control your resource encryption" : "Decrypt your resource"
                                     }
                                 </span>
@@ -592,9 +650,9 @@ function App() {
                             {isLockMode ? (
                                 <div className="resource-grid">
                                     {(
-                                        Object.entries(passwordResourceTypes) as [
-                                            passwordResourceType,
-                                            typeof passwordResourceTypes[passwordResourceType]
+                                        Object.entries(lockableResourceTypes) as [
+                                            LockableResourceTypes,
+                                            typeof lockableResourceTypes[LockableResourceTypes]
                                         ][]
                                     ).map(([type, resource]) => {
                                         const isSelected = selectedpasswordResource === type;
@@ -815,7 +873,7 @@ function App() {
                                                 {selectedFile
                                                     ? "Change file"
                                                     : isLockMode
-                                                        ? passwordResourceTypes[selectedpasswordResource].browseLabel
+                                                        ? lockableResourceTypes[selectedpasswordResource].browseLabel
                                                         : mode === "decrypt" ? "Browse .lbx file" : "Browse files"
                                                 }
                                             </button>
@@ -826,7 +884,7 @@ function App() {
                                         {...(selectedResource === "folder" && mode === "encrypt" ? { webkitdirectory: "", multiple: true } : {})}
                                         accept={
                                             isLockMode
-                                                ? passwordResourceTypes[selectedpasswordResource].accept
+                                                ? lockableResourceTypes[selectedpasswordResource].accept
                                                 : mode === "decrypt"
                                                     ? ".lbx,application/x-LockBoxX"
                                                     : selectedResource === "folder"
@@ -863,15 +921,10 @@ function App() {
                                             }
 
                                             if (isLockMode) {
-                                                const isValidLockResource =
-                                                    selectedpasswordResource === "pdf"
-                                                        ? file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
-                                                        : file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.name.toLowerCase().endsWith(".docx");
+                                                const isValidLockResource = fileMatchesAccept(file, lockableResourceTypes[selectedpasswordResource].accept);
 
                                                 if (!isValidLockResource) {
-                                                    setUploadError(
-                                                        selectedpasswordResource === "pdf" ? "Please select a PDF file." : "Please select a Word document (.docx)."
-                                                    );
+                                                    setUploadError(`Please select a ${lockableResourceTypes[selectedpasswordResource].name} file.`);
                                                     e.target.value = "";
                                                     return;
                                                 }
@@ -1524,38 +1577,16 @@ function App() {
                                                         if (mode === "encrypt") {
                                                             if (isLockMode) {
                                                                 if (!selectedFile) {
-                                                                    setOperationError(
-                                                                        selectedpasswordResource === "pdf" ? "Please select a PDF file first." : "Please select a Word document first."
-                                                                    );
+                                                                    setOperationError(`Please select a ${lockableResourceTypes[selectedpasswordResource].name} file first.`);
                                                                     setIsProcessing(false);
                                                                     return;
                                                                 }
 
-                                                                if (selectedpasswordResource === "pdf") {
-                                                                    const lockedBlob = await lockPdf(selectedFile, inputPassword);
+                                                                const { lock, mimeType, outputFileName } = lockHandlers[selectedpasswordResource];
+                                                                const lockedBlob = await lock(selectedFile, inputPassword);
 
-                                                                    setLockedFile(
-                                                                        new File(
-                                                                            [lockedBlob],
-                                                                            `locked-${selectedFile.name}`,
-                                                                            { type: "application/pdf" }
-                                                                        )
-                                                                    );
-
-                                                                    setOperationResult(`PDF locked: ${selectedFile.name}`);
-                                                                } else if (selectedpasswordResource === "docx") {
-                                                                    const lockedBlob = await lockOfficeFile(selectedFile, inputPassword);
-
-                                                                    setLockedFile(
-                                                                        new File(
-                                                                            [lockedBlob],
-                                                                            `locked-${selectedFile.name}`,
-                                                                            { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }
-                                                                        )
-                                                                    );
-
-                                                                    setOperationResult(`Word document locked: ${selectedFile.name}`);
-                                                                }
+                                                                setLockedFile(new File([lockedBlob], outputFileName(selectedFile.name), { type: mimeType }));
+                                                                setOperationResult(`${lockableResourceTypes[selectedpasswordResource].name} locked: ${selectedFile.name}`);
                                                             } else if (selectedResource === "text") {
                                                                 if (selectedAlgorithmConfig?.operation === "key-exchange") {
                                                                     const secret = await deriveSharedSecret(selectedAlgorithm as KeyExchangeAlgorithm, exchangePrivateKey, peerPublicKey);
