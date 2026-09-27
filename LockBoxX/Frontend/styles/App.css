@@ -765,6 +765,46 @@ button {
     font-size: var(--text-xs);
 }
 
+.drop-zone.loading {
+    cursor: wait;
+    border-style: solid;
+    pointer-events: none;
+}
+
+.drop-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 120px;
+    text-align: center;
+}
+
+.drop-loading strong {
+    font-size: 0.95rem;
+}
+
+.drop-loading span {
+    font-size: 0.8rem;
+    opacity: 0.65;
+}
+
+.drop-loading-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: drop-zone-spin 0.8s linear infinite;
+}
+
+@keyframes drop-zone-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .upload-error {
     display: flex;
     align-items: center;

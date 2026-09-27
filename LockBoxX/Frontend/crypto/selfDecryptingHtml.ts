@@ -1,6 +1,6 @@
 import { bytesToBase64 } from "./package";
 
-export type selfDecryptingResourceType = "image" | "audio" | "video";
+export type selfDecryptingResourceType = "audio"| "image" | "video";
 
 export interface selfDecryptingPayload {
     ciphertext: Uint8Array<ArrayBuffer>;

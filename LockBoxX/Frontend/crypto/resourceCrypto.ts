@@ -4,7 +4,7 @@ import type { SymmetricAlgorithm } from "./KeyDerivation";
 import type { selfDecryptingResourceType } from "./selfDecryptingHtml";
 
 export type ResourceType = "text" | "file" | "image" | "audio" | "video" | "folder";
-export type passwordResourceType = "pdf" | "docx" | "xlsx"| "pptx";
+export type passwordResourceType = "pdf" | "docx" | "xlsx" | "pptx" | "folder";
 export type LockableResourceTypes = passwordResourceType | selfDecryptingResourceType;
 
 export async function resourceToBytes(resource: string | File, resourceType: ResourceType): Promise<Uint8Array<ArrayBuffer>> {

@@ -13,10 +13,12 @@ import { lockPdf, unlockPdf, PdfEngineError } from "../Handlers/pdfHandler";
 import { lockOfficeFile, unlockOfficeFile } from "../Handlers/officeDocxHandler";
 import type { selfDecryptingResourceType } from "../crypto/selfDecryptingHtml";
 import { lockMediaToHtml } from "../Handlers/mediaHandler";
+import { lockFolderToZip, lockDirectoryToZip } from "../Handlers/zipLock";
 
 type Mode = "encrypt" | "decrypt";
 type WorkspaceMode = "encrypt" | "decrypt" | "lock" | "unlock";
 type EncryptionAlgorithm = SymmetricAlgorithm | RsaAlgorithm | KeyExchangeAlgorithm;
+type FolderSelection = { kind: "files"; files: File[] } | { kind: "handle"; handle: FileSystemDirectoryHandle };
 
 type AlgorithmCategory = {
     id: string;
@@ -71,7 +73,7 @@ const encryptionResourceTypes: Record<ResourceType, { name: string; description:
     },
 };
 
-const passwordResourceTypes: Record<passwordResourceType, { name: string; description: string; icon: string; browseLabel: string; dropTitle: string; dropHint: string; accept: string }> = {
+const passwordResourceTypes: Record<passwordResourceType, { name: string; description: string; icon: string; browseLabel: string; dropTitle: string; dropHint: string; accept?: string, isDirectory?: boolean }> = {
     pdf: {
         name: "PDF",
         description: "Password-protect PDF documents",
@@ -107,6 +109,15 @@ const passwordResourceTypes: Record<passwordResourceType, { name: string; descri
         dropTitle: "Drop your excel spreadsheets here",
         dropHint: "or click to browse for a XLSX file",
         accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    },
+    folder: {
+        name: "Folder",
+        description: "Password-protect an entire folder",
+        icon: "📂",
+        browseLabel: "Browse your folder",
+        dropTitle: "Drop your root folder here",
+        dropHint: "or click to browse for the folder",
+        isDirectory: true,
     },
 };
 
@@ -145,7 +156,9 @@ const lockableResourceTypes: Record<LockableResourceTypes, typeof passwordResour
     ...selfDecryptingResourceTypes,
 };
 
-const lockHandlers: Record<LockableResourceTypes, { lock: (file: File, password: string) => Promise<Blob>; mimeType: string; outputFileName: (name: string) => string; }> = {
+const unLockableResourceTypes: LockableResourceTypes[] = ["image", "video", "audio", "folder"];
+
+const lockHandlers: Record<Exclude<LockableResourceTypes, "folder">, { lock: (file: File, password: string) => Promise<Blob>; mimeType: string; outputFileName: (name: string) => string; }> = {
     pdf: { lock: lockPdf, mimeType: "application/pdf", outputFileName: (n) => `locked-${n}` },
     docx: { lock: lockOfficeFile, mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", outputFileName: (n) => `locked-${n}` },
     xlsx: { lock: lockOfficeFile, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", outputFileName: (n) => `locked-${n}` },
@@ -343,6 +356,7 @@ function App() {
     const [operationError, setOperationError] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [isLoadingFile, setIsLoadingFile] = useState(false);
     const [uploadError, setUploadError] = useState("");
     const [decryptedFile, setDecryptedFile] = useState<File | null>(null);
     const [lockedFile, setLockedFile] = useState<File | null>(null);
@@ -360,6 +374,7 @@ function App() {
     const [exchangeError, setExchangeError] = useState("");
     const [selectedpasswordResource, setSelectedPasswordResource] = useState<LockableResourceTypes>("pdf");
     const [highlightActionButtons, setHighlightActionButtons] = useState(false);
+    const [selectedFolderSelection, setSelectedFolderSelection] = useState<FolderSelection | null>(null);
 
     const isLockMode = workspaceMode === "lock" || workspaceMode === "unlock";
     const selectedAlgorithmConfig =
@@ -487,6 +502,7 @@ function App() {
         setSelectedPasswordResource(resourceType);
         setSelectedFile(null);
         setUploadError("");
+        setSelectedFolderSelection(null);
     };
 
     const ResourceIsValid = (file: File, resourceType: ResourceType): boolean => {
@@ -519,6 +535,7 @@ function App() {
         setDownloaded(false);
         setDecryptedFile(null);
         setLockedFile(null);
+        setSelectedFolderSelection(null);
 
         const fileInput = document.getElementById(
             "resource-upload"
@@ -650,7 +667,7 @@ function App() {
                             {isLockMode ? (
                                 <div className="resource-grid">
                                     {(
-                                        Object.entries(lockableResourceTypes) as [
+                                        Object.entries(lockableResourceTypes).filter(([type]) => !(mode === "decrypt" && unLockableResourceTypes.includes(type as LockableResourceTypes))) as [
                                             LockableResourceTypes,
                                             typeof lockableResourceTypes[LockableResourceTypes]
                                         ][]
@@ -721,7 +738,7 @@ function App() {
 
                                 /************** DROP ZONE **************/
 
-                                <div className={`drop-zone ${isDragging ? "dragging" : ""}`}
+                                <div className={`drop-zone ${isDragging ? "dragging" : ""} ${isLoadingFile ? "loading" : ""}`}
                                     onClick={() => selectedResource === "folder" && mode === "encrypt" ? void handleFolderPicker() : document.getElementById("resource-upload")?.click()}
                                     onDragOver={(e) => {
                                         e.preventDefault();
@@ -734,94 +751,133 @@ function App() {
                                     onDrop={async (e) => {
                                         e.preventDefault();
                                         setIsDragging(false);
+                                        setIsLoadingFile(true);
 
-                                        const files = Array.from(e.dataTransfer.files ?? []);
-                                        const file = files[0] ?? null;
+                                        try {
+                                            const files = Array.from(e.dataTransfer.files ?? []);
+                                            const file = files[0] ?? null;
 
-                                        if (!file && selectedResource === "folder") {
-                                            setUploadError("The selected folder is empty.");
-                                            return;
-                                        }
-                                        if (!file) return;
+                                            if (isLockMode && selectedpasswordResource === "folder") {
+                                                const item = e.dataTransfer.items?.[0];
+                                                const itemWithDirectorySupport = item as DataTransferItem & {
+                                                    getAsFileSystemHandle?: () => Promise<FileSystemDirectoryHandle>;
+                                                };
 
-                                        if (mode === "decrypt") {
-                                            if (isLockMode) {
-                                                if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-                                                    setUploadError("Please select a PDF file.");
-                                                    return;
-                                                }
-                                                setUploadError("");
-                                                setSelectedFile(file);
-                                                return;
-                                            }
-                                            if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-LockBoxX") {
-                                                setUploadError("Please select a valid LockBoxX (.lbx) file.");
-                                                return;
-                                            }
-
-                                            void file.text().then((packageString) => {
-                                                const trimmedPackage = packageString.trim();
-                                                if (!isPackageValid(trimmedPackage)) {
-                                                    setUploadError("This file is not a valid LockBoxX package or has been tampered with.");
-                                                    return;
-                                                }
-                                                setUploadError("");
-                                                setSelectedFile(file);
-                                            }).catch(() => setUploadError("The LockBoxX file could not be read."));
-
-                                            return;
-                                        }
-
-                                        if (selectedResource === "folder") {
-                                            const item = e.dataTransfer.items?.[0];
-
-                                            const itemWithDirectorySupport = item as DataTransferItem & {
-                                                getAsFileSystemHandle?: () => Promise<FileSystemDirectoryHandle>;
-                                            };
-
-                                            if (itemWithDirectorySupport?.getAsFileSystemHandle) {
-                                                try {
-                                                    const handle = await itemWithDirectorySupport.getAsFileSystemHandle();
-
-                                                    if (handle.kind !== "directory") {
-                                                        setUploadError("Please drop a folder.");
-                                                        return;
+                                                if (itemWithDirectorySupport?.getAsFileSystemHandle) {
+                                                    try {
+                                                        const handle = await itemWithDirectorySupport.getAsFileSystemHandle();
+                                                        if (handle.kind !== "directory") {
+                                                            setUploadError("Please drop a folder.");
+                                                            return;
+                                                        }
+                                                        const archive = await createFolderArchiveFromDirectory(handle);
+                                                        setSelectedFile(archive.file);
+                                                        setFolderSummary(archive.summary);
+                                                        setSelectedFolderSelection({ kind: "handle", handle });
+                                                        setUploadError("");
+                                                    } catch (error) {
+                                                        setUploadError(error instanceof CryptoError ? error.message : "The selected folder could not be archived.");
                                                     }
-
-                                                    const archive = await createFolderArchiveFromDirectory(handle);
-
-                                                    setSelectedFile(archive.file);
-                                                    setFolderSummary(archive.summary);
-                                                    setUploadError("");
-                                                } catch (error) {
-                                                    setUploadError(error instanceof CryptoError ? error.message : "The selected folder could not be archived.");
+                                                    return;
                                                 }
 
-                                                return;
-                                            }
+                                                if (files.length === 0) {
+                                                    setUploadError("The selected folder is empty.");
+                                                    return;
+                                                }
 
-                                            void createFolderArchive(files)
-                                                .then(({ file: archive, summary }) => {
+                                                try {
+                                                    const { file: archive, summary } = await createFolderArchive(files);
                                                     setSelectedFile(archive);
                                                     setFolderSummary(summary);
+                                                    setSelectedFolderSelection({ kind: "files", files });
                                                     setUploadError("");
-                                                })
-                                                .catch((error) => {
+                                                } catch (error) {
                                                     setUploadError(error instanceof CryptoError ? error.message : "The folder could not be read.");
-                                                });
-                                            return;
-                                        }
+                                                }
+                                                return;
+                                            }
+                                            if (!file) return;
 
-                                        if (isLockMode && (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"))) {
-                                            setUploadError("Please select a PDF file.");
-                                            return;
+                                            if (mode === "decrypt") {
+                                                if (isLockMode) {
+                                                    const isValidLockResource = fileMatchesAccept(file, lockableResourceTypes[selectedpasswordResource].accept ?? "*/*");
+                                                    if (!isValidLockResource) {
+                                                        setUploadError(`Please select a ${lockableResourceTypes[selectedpasswordResource].name} file.`);
+                                                        return;
+                                                    }
+                                                }
+                                                if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-LockBoxX") {
+                                                    setUploadError("Please select a valid LockBoxX (.lbx) file.");
+                                                    return;
+                                                }
+
+                                                void file.text().then((packageString) => {
+                                                    const trimmedPackage = packageString.trim();
+                                                    if (!isPackageValid(trimmedPackage)) {
+                                                        setUploadError("This file is not a valid LockBoxX package or has been tampered with.");
+                                                        return;
+                                                    }
+                                                    setUploadError("");
+                                                    setSelectedFile(file);
+                                                }).catch(() => setUploadError("The LockBoxX file could not be read."));
+
+                                                return;
+                                            }
+
+                                            if (selectedResource === "folder") {
+                                                const item = e.dataTransfer.items?.[0];
+
+                                                const itemWithDirectorySupport = item as DataTransferItem & {
+                                                    getAsFileSystemHandle?: () => Promise<FileSystemDirectoryHandle>;
+                                                };
+
+                                                if (itemWithDirectorySupport?.getAsFileSystemHandle) {
+                                                    try {
+                                                        const handle = await itemWithDirectorySupport.getAsFileSystemHandle();
+
+                                                        if (handle.kind !== "directory") {
+                                                            setUploadError("Please drop a folder.");
+                                                            return;
+                                                        }
+
+                                                        const archive = await createFolderArchiveFromDirectory(handle);
+
+                                                        setSelectedFile(archive.file);
+                                                        setFolderSummary(archive.summary);
+                                                        setUploadError("");
+                                                    } catch (error) {
+                                                        setUploadError(error instanceof CryptoError ? error.message : "The selected folder could not be archived.");
+                                                    }
+
+                                                    return;
+                                                }
+
+                                                void createFolderArchive(files)
+                                                    .then(({ file: archive, summary }) => {
+                                                        setSelectedFile(archive);
+                                                        setFolderSummary(summary);
+                                                        setUploadError("");
+                                                    })
+                                                    .catch((error) => {
+                                                        setUploadError(error instanceof CryptoError ? error.message : "The folder could not be read.");
+                                                    });
+                                                return;
+                                            }
+
+                                            if (isLockMode && (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"))) {
+                                                setUploadError("Please select a PDF file.");
+                                                return;
+                                            }
+                                            if (!isLockMode && !ResourceIsValid(file, selectedResource)) {
+                                                setUploadError(`You entered the wrong resource type`);
+                                                return;
+                                            }
+                                            setUploadError("");
+                                            setSelectedFile(file);
+                                        } finally {
+                                            setIsLoadingFile(false);
                                         }
-                                        if (!isLockMode && !ResourceIsValid(file, selectedResource)) {
-                                            setUploadError(`You entered the wrong resource type`);
-                                            return;
-                                        }
-                                        setUploadError("");
-                                        setSelectedFile(file);
                                     }}
                                 >
                                     {selectedFile ? (
@@ -851,6 +907,12 @@ function App() {
                                                 Change file
                                             </button>
                                         </>
+                                    ) : isLoadingFile ? (
+                                        <div className="drop-loading">
+                                            <div className="drop-loading-spinner" />
+                                            <strong>Loading file...</strong>
+                                            <span>Please wait while LockBoxX prepares your file</span>
+                                        </div>
                                     ) : (
                                         <>
                                             <div className="upload-icon">↑</div>
@@ -897,57 +959,77 @@ function App() {
                                                                     ? "video/*"
                                                                     : "*/*"
                                         }
+                                        {...(lockableResourceTypes[selectedpasswordResource].isDirectory ? { webkitdirectory: "" } : {})}
                                         onChange={async (e) => {
-                                            const files = Array.from(e.target.files ?? []);
-                                            const file = files[0] ?? null;
+                                            setIsLoadingFile(true);
 
-                                            if (!file && mode === "encrypt" && selectedResource === "folder") {
-                                                setUploadError("The selected folder is empty.");
-                                                e.target.value = "";
-                                                return;
-                                            }
-                                            if (!file) return;
+                                            try {
+                                                const files = Array.from(e.target.files ?? []);
+                                                const file = files[0] ?? null;
 
-                                            if (mode === "encrypt" && selectedResource === "folder") {
-                                                try {
-                                                    const { file: archive, summary } = await createFolderArchive(files);
-                                                    setSelectedFile(archive);
-                                                    setFolderSummary(summary);
-                                                    setUploadError("");
-                                                } catch (error) {
-                                                    setUploadError(error instanceof CryptoError ? error.message : "The folder could not be read.");
+                                                if (isLockMode && selectedpasswordResource === "folder") {
+                                                    if (files.length === 0) {
+                                                        setUploadError("The selected folder is empty.");
+                                                        e.target.value = "";
+                                                        return;
+                                                    }
+
+                                                    try {
+                                                        const { file: archive, summary } = await createFolderArchive(files);
+                                                        setSelectedFile(archive);
+                                                        setFolderSummary(summary);
+                                                        setSelectedFolderSelection({ kind: "files", files });
+                                                        setUploadError("");
+                                                    } catch (error) {
+                                                        setUploadError(error instanceof CryptoError ? error.message : "The folder could not be read.");
+                                                    }
+                                                    return;
                                                 }
-                                                return;
-                                            }
+                                                if (!file) return;
 
-                                            if (isLockMode) {
-                                                const isValidLockResource = fileMatchesAccept(file, lockableResourceTypes[selectedpasswordResource].accept);
+                                                if (mode === "encrypt" && selectedResource === "folder") {
+                                                    try {
+                                                        const { file: archive, summary } = await createFolderArchive(files);
+                                                        setSelectedFile(archive);
+                                                        setFolderSummary(summary);
+                                                        setUploadError("");
+                                                    } catch (error) {
+                                                        setUploadError(error instanceof CryptoError ? error.message : "The folder could not be read.");
+                                                    }
+                                                    return;
+                                                }
 
-                                                if (!isValidLockResource) {
-                                                    setUploadError(`Please select a ${lockableResourceTypes[selectedpasswordResource].name} file.`);
+                                                if (isLockMode) {
+                                                    const isValidLockResource = fileMatchesAccept(file, lockableResourceTypes[selectedpasswordResource].accept ?? "*/*");
+
+                                                    if (!isValidLockResource) {
+                                                        setUploadError(`Please select a ${lockableResourceTypes[selectedpasswordResource].name} file.`);
+                                                        e.target.value = "";
+                                                        return;
+                                                    }
+                                                } else if (mode === "decrypt") {
+                                                    if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-LockBoxX") {
+                                                        setUploadError("Please select a valid LockBoxX (.lbx) file.");
+                                                        e.target.value = "";
+                                                        return;
+                                                    }
+                                                    const packageString = (await file.text()).trim();
+                                                    if (!isPackageValid(packageString)) {
+                                                        setUploadError("This file is not a valid LockBoxX package or has been tampered with.");
+                                                        e.target.value = "";
+                                                        return;
+                                                    }
+                                                } else if (selectedResource !== "folder" && !ResourceIsValid(file, selectedResource)) {
+                                                    setUploadError("You entered the wrong resource type");
                                                     e.target.value = "";
                                                     return;
                                                 }
-                                            } else if (mode === "decrypt") {
-                                                if (!file.name.toLowerCase().endsWith(".lbx") && file.type !== "application/x-LockBoxX") {
-                                                    setUploadError("Please select a valid LockBoxX (.lbx) file.");
-                                                    e.target.value = "";
-                                                    return;
-                                                }
-                                                const packageString = (await file.text()).trim();
-                                                if (!isPackageValid(packageString)) {
-                                                    setUploadError("This file is not a valid LockBoxX package or has been tampered with.");
-                                                    e.target.value = "";
-                                                    return;
-                                                }
-                                            } else if (selectedResource !== "folder" && !ResourceIsValid(file, selectedResource)) {
-                                                setUploadError("You entered the wrong resource type");
-                                                e.target.value = "";
-                                                return;
-                                            }
 
-                                            setUploadError("");
-                                            setSelectedFile(file);
+                                                setUploadError("");
+                                                setSelectedFile(file);
+                                            } finally {
+                                                setIsLoadingFile(false);
+                                            }
                                         }}
                                     />
                                     {uploadError && (
@@ -1576,17 +1658,32 @@ function App() {
                                                     try {
                                                         if (mode === "encrypt") {
                                                             if (isLockMode) {
-                                                                if (!selectedFile) {
-                                                                    setOperationError(`Please select a ${lockableResourceTypes[selectedpasswordResource].name} file first.`);
-                                                                    setIsProcessing(false);
-                                                                    return;
+                                                                if (selectedpasswordResource === "folder") {
+                                                                    if (!selectedFolderSelection) {
+                                                                        setOperationError("Please select a folder first.");
+                                                                        setIsProcessing(false);
+                                                                        return;
+                                                                    }
+
+                                                                    const { file: zipFile } =
+                                                                        selectedFolderSelection.kind === "handle"
+                                                                            ? await lockDirectoryToZip(selectedFolderSelection.handle, inputPassword)
+                                                                            : await lockFolderToZip(selectedFolderSelection.files, inputPassword);
+
+                                                                    setLockedFile(zipFile);
+                                                                    setOperationResult(`Folder locked: ${zipFile.name}`);
+                                                                } else {
+                                                                    if (!selectedFile) {
+                                                                        setOperationError(`Please select a ${lockableResourceTypes[selectedpasswordResource].name} file first.`);
+                                                                        setIsProcessing(false);
+                                                                        return;
+                                                                    }
+
+                                                                    const { lock, mimeType, outputFileName } = lockHandlers[selectedpasswordResource];
+                                                                    const lockedBlob = await lock(selectedFile, inputPassword);
+                                                                    setLockedFile(new File([lockedBlob], outputFileName(selectedFile.name), { type: mimeType }));
+                                                                    setOperationResult(`${lockableResourceTypes[selectedpasswordResource].name} locked: ${selectedFile.name}`);
                                                                 }
-
-                                                                const { lock, mimeType, outputFileName } = lockHandlers[selectedpasswordResource];
-                                                                const lockedBlob = await lock(selectedFile, inputPassword);
-
-                                                                setLockedFile(new File([lockedBlob], outputFileName(selectedFile.name), { type: mimeType }));
-                                                                setOperationResult(`${lockableResourceTypes[selectedpasswordResource].name} locked: ${selectedFile.name}`);
                                                             } else if (selectedResource === "text") {
                                                                 if (selectedAlgorithmConfig?.operation === "key-exchange") {
                                                                     const secret = await deriveSharedSecret(selectedAlgorithm as KeyExchangeAlgorithm, exchangePrivateKey, peerPublicKey);

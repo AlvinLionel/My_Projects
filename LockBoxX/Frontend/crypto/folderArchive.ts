@@ -11,22 +11,44 @@ export interface FolderArchive {
     file: File;
     summary: FolderSummary;
 }
-interface FolderEntry {
+export interface FolderEntry {
     path: string;
     file?: File;
     directory: boolean;
 }
 
-const MAX_FOLDER_BYTES = 100 * 1024 * 1024;
+export const MAX_FOLDER_BYTES = 100 * 1024 * 1024;
 
-function getRelativePath(file: File): string {
+export function getRelativePath(file: File): string {
     const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
     return path.replace(/\\/g, "/").replace(/^\/+/, "");
 }
 
-function getFolderName(files: File[]): string {
+export function getFolderName(files: File[]): string {
     const firstPath = getRelativePath(files[0]);
     return firstPath.includes("/") ? firstPath.split("/")[0] : "Selected folder";
+}
+
+export function collectFileListEntries(files:File[]):FolderEntry[]{
+    return files.map(file => ({path:getRelativePath(file), file,directory:false}));
+}
+
+export async function collectDirectoryEntries(directory:FileSystemDirectoryHandle):Promise<FolderEntry[]>{
+    const entries: FolderEntry[] = [];
+
+    async function visit(handle:FileSystemDirectoryHandle,parentPath:string):Promise<void>{
+        for await (const[name,entry] of handle.entries()){
+            const path = `${parentPath}/${name}`;
+            if(entry.kind === "file"){
+                entries.push({path,file:await entry.getFile(),directory:false});
+            }else{
+                entries.push({path:`${path}/`,directory:true});
+                await visit(entry,path);
+            }
+        }
+    }
+    await visit(directory,directory.name);
+    return entries;
 }
 
 async function createArchive(entries: FolderEntry[], folderName: string): Promise<FolderArchive> {
@@ -68,7 +90,7 @@ async function createArchive(entries: FolderEntry[], folderName: string): Promis
                 fileCount: files.length,
                 folderCount: folders.size,
                 size: archiveFile.size,
-            },
+            }
         };
     } catch (error) {
         if (error instanceof CryptoError) throw error;
@@ -80,28 +102,13 @@ async function createArchive(entries: FolderEntry[], folderName: string): Promis
 export async function createFolderArchive(files: File[]): Promise<FolderArchive> {
     if (files.length === 0) throw new CryptoError("EMPTY_FOLDER", "The selected folder is empty.");
 
-    return createArchive(
-        files.map(file => ({ path: getRelativePath(file), file, directory: false })), getFolderName(files)
-    );
+    return createArchive( collectFileListEntries(files), getFolderName(files));
 }
 
 export async function createFolderArchiveFromDirectory(directory: FileSystemDirectoryHandle): Promise<FolderArchive> {
-    const entries: FolderEntry[] = [];
+    const entries = await collectDirectoryEntries(directory);
 
-    async function visit(handle: FileSystemDirectoryHandle, parentPath: string): Promise<void> {
-        for await (const [name, entry] of handle.entries()) {
-            const path = `${parentPath}/${name}`;
-            if (entry.kind === "file") {
-                entries.push({ path, file: await entry.getFile(), directory: false });
-            } else {
-                entries.push({ path: `${path}/`, directory: true });
-                await visit(entry, path);
-            }
-        }
-    }
-
-    await visit(directory, directory.name);
-    return createArchive(entries, directory.name);
+    return createArchive(entries,directory.name);
 }
 
 export async function inspectFolderArchive(file: File, fallbackName = "Restored folder"): Promise<FolderSummary> {
