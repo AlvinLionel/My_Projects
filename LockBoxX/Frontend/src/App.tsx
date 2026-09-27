@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import "../styles/App.css";
+import Help from "./help";
 import { encryptText, decryptText, decryptTextWithSharedSecret, encryptTextWithSharedSecret } from "../crypto/aes";
 import { createPackage, createRsaPackage, isPackageValid, unpackage } from "../crypto/package";
 import { CryptoError } from "../crypto/error";
@@ -375,6 +376,7 @@ function App() {
     const [selectedpasswordResource, setSelectedPasswordResource] = useState<LockableResourceTypes>("pdf");
     const [highlightActionButtons, setHighlightActionButtons] = useState(false);
     const [selectedFolderSelection, setSelectedFolderSelection] = useState<FolderSelection | null>(null);
+    const [showHelp, setShowHelp] = useState(false);
 
     const isLockMode = workspaceMode === "lock" || workspaceMode === "unlock";
     const selectedAlgorithmConfig =
@@ -563,6 +565,8 @@ function App() {
             "Restoring original resource",
         ];
 
+    if (showHelp) return <Help onBack={() => setShowHelp(false)} />;
+
     return (
         <div className="app">
             <header className="navbar">
@@ -573,6 +577,10 @@ function App() {
                         <span>CRYPTOGRAPHIC WORKSPACE</span>
                     </div>
                 </div>
+                <button type="button" className="help" onClick={() => setShowHelp(true)}>
+                    <span className="help-icon">?</span>
+                    <span>Help</span>
+                </button>
                 <div className="security-status">
                     <span className="status-dot"></span>SECURITY MADE EASY
                 </div>

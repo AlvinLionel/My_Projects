@@ -55,7 +55,7 @@
     --color-success: #68dba0;
     --color-danger: #ff6464;
     --color-warning: rgb(var(--warning-rgb) / 0.78);
-    
+
     --surface-panel: rgba(13, 16, 23, 0.76);
     --surface-tile: #151a22;
     --surface-tile-hover: #1a202a;
@@ -161,6 +161,7 @@ button {
     display: block;
     font-size: var(--text-xl);
 }
+
 .app {
     position: relative;
     min-height: 100vh;
@@ -215,6 +216,52 @@ button {
     font-family: var(--font-mono);
     font-size: var(--text-2xs);
     letter-spacing: var(--tracking-caps);
+}
+
+.help {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: transparent;
+    border: none;
+    padding: 6px 4px;
+    color: inherit;
+    font: inherit;
+    font-size: var(--text-xl);
+    transition: opacity 0.2s ease;
+}
+
+.help-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: var(--text-xl);
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+
+.help::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0;
+    height: 1.5px;
+    background: currentColor;
+    transition: width 0.2s ease;
+}
+
+.help:hover .help-icon {
+    transform: rotate(20deg);
+}
+
+.help:hover::after {
+    width: 100%;
 }
 
 .security-status {
@@ -488,6 +535,7 @@ button {
     border-color: rgb(var(--steel-rgb) / 0.65);
     box-shadow: 0 0 0 3px rgb(var(--steel-rgb) / 0.12), 0 0 20px rgb(100 140 190 / 0.12);
 }
+
 .workspace-header-content {
     display: flex;
     flex-direction: column;
@@ -560,36 +608,10 @@ button {
 
 .resource-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
     gap: var(--space-10);
-    max-width: 820px;
+    max-width: 980px;
     margin-bottom: var(--space-16);
-}
-
-@container resource-panel (min-width: 24rem) {
-    .resource-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-@container resource-panel (min-width: 47.5rem) {
-    .resource-grid {
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-    }
-}
-
-@supports not (container-type: inline-size) {
-    @media (min-width: 560px) {
-        .resource-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-    }
-
-    @media (min-width: 900px) {
-        .resource-grid {
-            grid-template-columns: repeat(6, minmax(0, 1fr));
-        }
-    }
 }
 
 .resource-card {
@@ -1582,6 +1604,7 @@ button {
 }
 
 @keyframes result-action-pulse {
+
     0%,
     100% {
         box-shadow: 0 0 0 rgba(100, 140, 190, 0);
@@ -1786,21 +1809,12 @@ footer {
 }
 
 @media (max-width: 800px) {
-
-    .security-status {
-        display: none;
-    }
-
     .workspace {
         padding-top: 50px;
     }
 
     .workspace-grid {
         grid-template-columns: 1fr;
-    }
-
-    .resource-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .resource-panel {
@@ -1867,10 +1881,6 @@ footer {
         display: none;
     }
 
-    .resource-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     footer {
         width: 92%;
         flex-direction: column;
@@ -1922,7 +1932,8 @@ footer {
     }
 }
 
-@media (max-width: 767px), (pointer: coarse) {
+@media (max-width: 767px),
+(pointer: coarse) {
     :root {
         --input-font-size: var(--text-xl);
         --input-font-size-code: var(--text-xl);
@@ -1932,6 +1943,7 @@ footer {
 }
 
 @media (pointer: coarse) {
+
     .primary-action,
     .browse-button,
     .result-action,
@@ -1951,6 +1963,7 @@ footer {
 }
 
 @media (hover: none) {
+
     .mode:hover,
     .resource-card:hover,
     .algorithm-card:hover,
@@ -1961,6 +1974,7 @@ footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
