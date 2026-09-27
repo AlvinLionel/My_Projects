@@ -64,6 +64,8 @@
     justify-content: space-between;
     gap: 2rem;
     border-bottom: 1px solid var(--border-subtle);
+    top: 0;
+    position: sticky;
 }
 
 .help-brand {
