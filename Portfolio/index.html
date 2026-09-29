@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Alvin Lionel-Porfolio.">
+    <meta name="author" content="Alvin Lionel Thumi Thooko">
+    <title>Alvin Lionel-Portfolio</title>
+    <link rel="stylesheet" href="index.css">
+    <script defer src="index.js"></script>
+</head>
+
+<body>
+    <div class="background" aria-hidden="true">
+        <div class="background-orb background-orb-one"></div>
+        <div class="background-orb background-orb-two"></div>
+        <div class="background-orb background-orb-three"></div>
+        <div class="background-glow"></div>
+    </div>
+    <header class="site-header">
+        <nav class="navigation" aria-label="Main navigation">
+            <a href="#home" class="brand">
+                <span class="brand-initials">ALT</span>
+                <span class="brand-name">Alvin Lionel Thumi Thooko</span>
+            </a>
+            <button class="menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded="false"
+                aria-controls="main-navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="navigation-menu" id="main-navigation">
+                <li><a href="#about">About</a></li>
+                <li><a href="#skills">Skills</a></li>
+                <li><a href="#projects">Projects</a></li>
+                <li><a href="#education">Education</a> </li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <section class="hero" id="home">
+            <div class="hero-content">
+                <p class="hero-introduction">Hello, I'm</p>
+                <h1>Alvin Lionel</h1>
+                <p class="hero-role">Software Engineering Student</p>
+                <p class="hero-description">I build software that turns ideas and problems into practical applications,
+                    systems, and digital experiences.</p>
+                <div class="hero-actions">
+                    <a href="#projects" class="button button-primary">View my work </a>
+                    <a href="#contact" class="button button-secondary"> Get in touch</a>
+                </div>
+                <div class="hero-location">
+                    <span class="location-dot"></span>
+                    <span>Nairobi, Kenya</span>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="hero-initials"> ALT</div>
+                <p class="hero-visual-caption">Software Engineering · Full-Stack</p>
+            </div>
+        </section>
+        <section class="about section" id="about">
+            <div class="section-introduction">
+                <p class="section-label">About me</p>
+                <h2> Building while learning.</h2>
+            </div>
+            <div class="about-content">
+                <div class="about-main">
+                    <p>I'm a Software Engineering student with a growing focus on full-stack development, backend
+                        systems, databases, and security-focused applications. </p>
+                    <p>I enjoy taking an idea from a problem or concept and turning it into something that can actually
+                        be used — from web applications and APIs to systems involving payments, databases, and
+                        cryptography.</p>
+                    <p>I'm currently developing my skills through personal projects, coursework, experimentation, and
+                        continuous learning.</p>
+                </div>
+                <div class="about-details">
+                    <div class="detail">
+                        <span class="detail-label">Based in</span>
+                        <strong>Nairobi, Kenya</strong>
+                    </div>
+                    <div class="detail">
+                        <span class="detail-label">Degree</span>
+                        <strong>BSc Software Engineering</strong>
+                    </div>
+                    <div class="detail">
+                        <span class="detail-label"> University</span>
+                        <strong>The Co-operative University of Kenya</strong>
+                    </div>
+                    <div class="detail">
+                        <span class="detail-label"> Expected graduation</span>
+                        <strong>2028</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="skills section" id="skills">
+            <div class="section-introduction">
+                <p class="section-label"> Skills</p>
+                <h2> Tools I use to build.</h2>
+                <p class="section-description">Technologies and areas I've worked with through coursework, projects, and
+                    experimentation.</p>
+            </div>
+            <div class="skills-grid">
+                <article class="skill-group">
+                    <h3> Languages </h3>
+                    <ul>
+                        <li>C</li>
+                        <li>JavaScript</li>
+                        <li>TypeScript</li>
+                        <li>PHP</li>
+                        <li>SQL</li>
+                    </ul>
+                </article>
+                <article class="skill-group">
+                    <h3> Frontend</h3>
+                    <ul>
+                        <li>HTML</li>
+                        <li>CSS</li>
+                        <li>React</li>
+                        <li>Vite</li>
+                    </ul>
+                </article>
+                <article class="skill-group">
+                    <h3>Backend</h3>
+                    <ul>
+                        <li>Node.js</li>
+                        <li>Express</li>
+                        <li>REST APIs</li>
+                        <li>API Integration</li>
+                    </ul>
+                </article>
+                <article class="skill-group">
+                    <h3>Databases</h3>
+                    <ul>
+                        <li>MySQL</li>
+                        <li>PostgreSQL</li>
+                        <li>MongoDB</li>
+                    </ul>
+                </article>
+                <article class="skill-group">
+                    <h3>Security & Cryptography</h3>
+                    <ul>
+                        <li>Web Crypto API</li>
+                        <li>AES</li>
+                        <li>RSA</li>
+                        <li>ECDH / X25519</li>
+                    </ul>
+                </article>
+                <article class="skill-group">
+                    <h3>Tools & Engineering</h3>
+                    <ul>
+                        <li>Git</li>
+                        <li>GitHub</li>
+                        <li>npm</li>
+                        <li>Version Control</li>
+                        <li>Technical Documentation</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+        <section class="projects section" id="projects">
+            <div class="section-introduction">
+                <p class="section-label">Selected work</p>
+                <h2>Things I've built.</h2>
+                <p class="section-description">A selection of projects I've worked on while developing my software
+                    engineering skills.</p>
+            </div>
+            <div class="projects-list">
+                <article class="project project-featured">
+                    <div class="project-visual">
+                        <div class="project-visual-inner">
+                            <img src="assets/lbx.png" alt="lockboxx-screenshot">
+                        </div>
+                    </div>
+                    <div class="project-content">
+                        <p class="project-category">Security Platform</p>
+                        <h3> LockBoxX</h3>
+                        <p>A browser-based security platform for protecting text, files, images, audio, video, and
+                            folders using client-side cryptographic operations.</p>
+                        <p>The project explores practical applications of encryption, password-based key derivation,
+                            public-key cryptography, key exchange, and secure file handling in the browser.</p>
+                        <ul class="project-technologies">
+                            <li>React</li>
+                            <li>TypeScript</li>
+                            <li>Web Crypto API</li>
+                            <li>Vite</li>
+                        </ul>
+                        <div class="project-links">
+                            <a href="https://lockboxx.vercel.app/" target="_blank" rel="noopener noreferrer">Live
+                                project </a>
+                            <a href="https://github.com/AlvinLionel/My_Projects/tree/main/LockBoxX" target="_blank"
+                                rel="noopener noreferrer" data-placeholder="github-lockboxx">Source code</a>
+                        </div>
+                    </div>
+                </article>
+                <article class="project">
+                    <div class="project-visual">
+                        <div class="project-visual-inner">
+                            <img src="assets/homeX.png" alt="lockboxx-screenshot">
+                        </div>
+                    </div>
+                    <div class="project-content">
+                        <p class="project-category">Full-Stack Application </p>
+                        <h3> HomeDepo </h3>
+                        <p> A full-stack platform for discovering and purchasing home products while connecting users
+                            with nearby stores and home improvement services.</p>
+                        <ul class="project-technologies">
+                            <li>React</li>
+                            <li>TypeScript</li>
+                            <li>Node.js</li>
+                            <li>Express</li>
+                            <li>MySQL</li>
+                        </ul>
+                        <div class="project-links">
+                            <a href="https://github.com/AlvinLionel/HomeDepo" target="_blank" rel="noopener noreferrer"
+                                data-placeholder="github-homedepo">Source code </a>
+                        </div>
+                    </div>
+                    <div class="project-side">
+                        <span class="project-number">02</span>
+                        <span class="project-status"> Ongoing</span>
+                    </div>
+                </article>
+                <article class="project">
+                    <div class="project-visual">
+                        <div class="project-visual-inner">
+                            <img src="assets/checkout.png" alt="lockboxx-screenshot">
+                        </div>
+                    </div>
+                    <div class="project-content">
+                        <p class="project-category">Payment System</p>
+                        <h3>Checkout System</h3>
+                        <p> A checkout application built around product and transaction management, with MySQL for data
+                            storage and Safaricom's Daraja API for mobile payment integration.</p>
+                        <ul class="project-technologies">
+                            <li>JavaScript</li>
+                            <li>Node.js</li>
+                            <li>MySQL</li>
+                            <li>Bootstrap</li>
+                            <li>Daraja API</li>
+                        </ul>
+                        <div class="project-links">
+                            <a href="https://github.com/AlvinLionel/My_Projects/tree/main/Checkout_page" target="_blank"
+                                rel="noopener noreferrer" data-placeholder="github-checkout"> Source code </a>
+                        </div>
+                    </div>
+                    <div class="project-side">
+                        <span class="project-number">03</span>
+                    </div>
+                </article>
+                <article class="project">
+                    <div class="project-content">
+                        <p class="project-category">Backend / Systems</p>
+                        <h3>Static Server</h3>
+                        <p>A custom static file server built with Node.js to explore HTTP request handling, file
+                            serving, and event and error logging.</p>
+                        <ul class="project-technologies">
+                            <li>Node.js</li>
+                            <li>HTTP</li>
+                            <li>File Systems</li>
+                            <li>Logging</li>
+                        </ul>
+                        <div class="project-links">
+                            <a href="https://github.com/AlvinLionel/My_Projects/tree/main/Static_server" target="_blank"
+                                rel="noopener noreferrer" data-placeholder="github-static-server">Source code </a>
+                        </div>
+                    </div>
+                    <div class="project-side">
+                        <span class="project-number">04</span>
+                    </div>
+                </article>
+                <article class="project">
+                    <div class="project-visual">
+                        <div class="project-visual-inner">
+                            <img src="assets/weatherpage.png" alt="lockboxx-screenshot">
+                        </div>
+                    </div>
+                    <div class="project-content">
+                        <p class="project-category">API Application</p>
+                        <h3>Weather Application</h3>
+                        <p>A web application that consumes an external weather API and presents current weather
+                            information through dynamic interface elements.</p>
+                        <ul class="project-technologies">
+                            <li>HTML</li>
+                            <li>CSS</li>
+                            <li>JavaScript</li>
+                            <li>REST API</li>
+                        </ul>
+                        <div class="project-links">
+                            <a href="https://github.com/AlvinLionel/My_Projects/tree/main/WeatherPage" target="_blank"
+                                rel="noopener noreferrer" data-placeholder="github-weather">Source code </a>
+                        </div>
+                    </div>
+                    <div class="project-side">
+                        <span class="project-number"> 05</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+        <section class="education section" id="education">
+            <div class="section-introduction">
+                <p class="section-label"> Education</p>
+                <h2>Where I'm learning.</h2>
+            </div>
+            <article class="education-item">
+                <div class="education-year">2024 — 2028</div>
+                <div class="education-content">
+                    <p class="education-level">Bachelor's Degree</p>
+                    <h3>Bachelor of Science in Software Engineering</h3>
+                    <p class="education-school">The Co-operative University of Kenya</p>
+                    <p class="education-description"> Currently developing a foundation in software engineering
+                        principles, programming, databases, systems, requirements engineering, and software development.
+                    </p>
+                </div>
+            </article>
+        </section>
+        <section class="focus section">
+            <div class="section-introduction">
+                <p class="section-label">Right now </p>
+                <h2> What I'm working toward.</h2>
+            </div>
+            <div class="focus-content">
+                <p>I'm currently strengthening my full-stack development skills while continuing to explore backend
+                    systems, databases, APIs, and application security. </p>
+                <p>I'm also building projects that give me practical experience beyond coursework and preparing for
+                    opportunities to apply those skills in a professional environment.</p>
+            </div>
+            <div class="focus-tags">
+                <span> Full-Stack Development</span>
+                <span> Backend Development</span>
+                <span> Databases</span>
+                <span>Application Security</span>
+                <span>APIs</span>
+            </div>
+        </section>
+        <section class="additional section">
+            <div class="additional-grid">
+                <div class="additional-item">
+                    <p class="section-label">Languages</p>
+                    <h3> Communication</h3>
+                    <ul>
+                        <li>
+                            <span>English</span>
+                            <small>Advanced</small>
+                        </li>
+                        <li>
+                            <span>Swahili</span>
+                            <small>Native</small>
+                        </li>
+                    </ul>
+                </div>
+                <div class="additional-item">
+                    <p class="section-label"> Open Source & Code</p>
+                    <h3>GitHub</h3>
+                    <p>Most of my experiments and projects live here.</p>
+                    <a href="https://github.com/AlvinLionel" target="_blank"rel="noopener noreferrer">github.com/AlvinLionel</a>
+                </div>
+                <div class="additional-item">
+                    <p class="section-label">Resume </p>
+                    <h3>My CV</h3>
+                    <p>A downloadable copy of my current resume.</p>
+                    <div class="cv-actions">
+                        <a href="assets/Lionel_Resume.pdf" target="_blank" rel="noopener noreferrer">View CV</a>&nbsp;
+                        <a href="assets/Lionel_Resume.pdf" download="Alvin_Lionel_Thumi_Thooko_CV.pdf">Download CV</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="contact section" id="contact">
+            <div class="contact-content">
+                <p class="section-label">Contact</p>
+                <h2>Let's build something.</h2>
+                <p> Whether it's a project, an opportunity, or simply a conversation about software, I'd be happy to hear from you.</p>
+                <div class="contact-details">
+                    <a href="mailto:alvinlionel053@gmail.com" class="contact-item">
+                        <span class="contact-label">Email</span>
+                        <span>alvinlionel053@gmail.com</span>
+                    </a>
+                    <a href="tel:+254745419147" class="contact-item">
+                        <span class="contact-label">Phone</span>
+                        <span>+254745419147</span>
+                    </a>
+                    <a href="https://github.com/AlvinLionel" target="_blank" rel="noopener noreferrer"
+                        class="contact-item">
+                        <span class="contact-label">GitHub</span>
+                        <span>@AlvinLionel</span>
+                    </a>
+                    <div class="contact-item">
+                        <span class="contact-label">Location</span>
+                        <span>Nairobi, Kenya</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="brand-initials">ALT</span>
+                <span>Alvin Lionel</span>
+            </div>
+            <p>Software Engineering student building, learning, and experimenting.</p>
+            <p class="footer-copyright"> © <span id="current-year">2026</span> Alvin Lionel. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+
+</html>
