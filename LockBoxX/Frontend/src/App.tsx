@@ -18,6 +18,7 @@ import { lockFolderToZip, lockDirectoryToZip } from "../Handlers/zipLock";
 
 type Mode = "encrypt" | "decrypt";
 type WorkspaceMode = "encrypt" | "decrypt" | "lock" | "unlock";
+type ProtectionPath = "encryption" | "password";
 type EncryptionAlgorithm = SymmetricAlgorithm | RsaAlgorithm | KeyExchangeAlgorithm;
 type FolderSelection = { kind: "files"; files: File[] } | { kind: "handle"; handle: FileSystemDirectoryHandle };
 
@@ -342,6 +343,7 @@ function fileMatchesAccept(file: File, accept: string): boolean {
 function App() {
     const [mode, setMode] = useState<Mode>("encrypt");
     const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode | null>(null);
+    const [protectionPath, setProtectionPath] = useState<ProtectionPath | null>(null);
     const [selectedResource, setSelectedResource] = useState<ResourceType>("text");
     const [selectedAlgorithm, setSelectedAlgorithm] = useState<EncryptionAlgorithm>("AES-256-GCM");
     const [openCategory, setOpenCategory] = useState<string | null>("symmetric");
@@ -458,6 +460,11 @@ function App() {
                 }
             },
         ];
+    const visibleModeOptions = modeOptions.filter(option =>
+        protectionPath === "encryption"
+            ? option.workspace === "encrypt" || option.workspace === "decrypt"
+            : option.workspace === "lock" || option.workspace === "unlock"
+    );
 
     const handleFolderPicker = async () => {
         const picker = (window as Window & {
@@ -602,27 +609,80 @@ function App() {
                     {/**************MODES **************/}
 
                     {workspaceMode === null ? (
-                        <div className="mode-selector workspace-selector">
-                            {modeOptions.map(opt => (
-                                <button
-                                    key={opt.workspace}
-                                    className="mode"
-                                    onClick={() => {
-                                        setWorkspaceMode(opt.workspace);
-                                        setMode(opt.mode);
-                                        if (opt.workspace === "lock") {
-                                            setSelectedResource("file");
-                                        }
-                                        opt.defaults?.();
-                                    }}>
-                                    <span className="mode-icon">{opt.icon}</span>
-                                    <div>
-                                        <strong>{opt.label}</strong>
-                                        <small>{opt.description}</small>
+                        protectionPath === null ? (
+                            <section className="protection-path-selector" aria-labelledby="protection-path-question">
+                                <div className="protection-path-heading">
+                                    <span>CHOOSE YOUR APPROACH</span>
+                                    <h3 id="protection-path-question">How would you like to protect your resource?</h3>
+                                </div>
+                                <div className="workspace-selector">
+                                    <button
+                                        type="button"
+                                        className="mode"
+                                        onClick={() => setProtectionPath("encryption")}
+                                    >
+                                        <span className="mode-icon">◈</span>
+                                        <div>
+                                            <strong>Fully control your encryption</strong>
+                                            <small>Choose an encryption method and manage how your resource is protected.</small>
+                                        </div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="mode"
+                                        onClick={() => setProtectionPath("password")}
+                                    >
+                                        <span className="mode-icon">🔐</span>
+                                        <div>
+                                            <strong>Password protect your resource</strong>
+                                            <small>Create or remove a password lock for supported resources.</small>
+                                        </div>
+                                    </button>
+                                </div>
+                            </section>
+                        ) : (
+                            <>
+                                <div className="workspace-subheader">
+                                    <button
+                                        type="button"
+                                        className="back-button"
+                                        onClick={() => setProtectionPath(null)}
+                                    >
+                                        ← Change approach
+                                    </button>
+                                    <div className="workspace-header-content">
+                                        <strong>
+                                            {protectionPath === "encryption"
+                                                ? "Fully control your encryption"
+                                                : "Password protect your resource"}
+                                        </strong>
+                                        <span>Choose what you would like to do</span>
                                     </div>
-                                </button>
-                            ))}
-                        </div>
+                                </div>
+                                <div className="mode-selector workspace-selector">
+                                    {visibleModeOptions.map(opt => (
+                                        <button
+                                            key={opt.workspace}
+                                            type="button"
+                                            className="mode"
+                                            onClick={() => {
+                                                setWorkspaceMode(opt.workspace);
+                                                setMode(opt.mode);
+                                                if (opt.workspace === "lock") {
+                                                    setSelectedResource("file");
+                                                }
+                                                opt.defaults?.();
+                                            }}>
+                                            <span className="mode-icon">{opt.icon}</span>
+                                            <div>
+                                                <strong>{opt.label}</strong>
+                                                <small>{opt.description}</small>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )
                     ) : (
                         <div className="workspace-subheader">
                             <button
@@ -632,7 +692,7 @@ function App() {
                                     setWorkspaceMode(null)
                                     resetOperation()
                                 }}>
-                                ← All tools
+                                ← Back to actions
                             </button>
 
                             <div className="workspace-header-content">

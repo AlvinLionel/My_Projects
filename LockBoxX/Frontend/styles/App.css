@@ -405,6 +405,27 @@ button {
     opacity: 0.9;
 }
 
+.protection-path-selector {
+    padding-block: var(--space-24);
+}
+
+.protection-path-heading {
+    padding-inline: var(--panel-padding);
+}
+
+.protection-path-heading > span {
+    color: var(--color-accent);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-caps);
+}
+
+.protection-path-heading h3 {
+    margin-top: var(--space-10);
+    color: var(--color-text-bright);
+    font-size: clamp(var(--text-2xl), 3vw, 1.5rem);
+    letter-spacing: var(--tracking-tight);
+}
+
 /******** WORKSPACE *********/
 .workspace-grid {
     display: grid;
