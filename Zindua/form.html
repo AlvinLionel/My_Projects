@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registartion form</title>
+</head>
+
+<body>
+    <form action="#">
+        <fieldset>
+            <legend>personal data</legend>
+
+            <label for="fullName">Full name</label><br>
+            <input type="text" name="fullName" id="name"><br>
+            <label for="email">Email</label><br>
+            <input type="email" name="email" id="email"><br>
+            <label for="phone">Phone Number</label><br>
+            <input type="tel" name="phone" id="phone"><br>
+            <label for="DOB">Date of Birth</label><br>
+            <input type="date" name="DOB" id="DOB"><br>
+            <label for="gender">Gender</label><br>
+            <input type="radio" name="gender" id="male">
+            <label for="male">Male</label> &nbsp;
+            <input type="radio" name="gender" id="female">
+            <label for="female">female</label><br>
+        </fieldset>
+        <fieldset>
+            <legend>Course data</legend>
+            <label for="course">Course: &nbsp;</label>
+            <select name="course" id="course">
+                <option value="SE">Software Engineering</option>
+                <option value="DS">Data Science</option>
+                <option value="DA">Data Analytics</option>
+                <option value="DM">Database Management</option>
+            </select><br>
+            <label for="preferenceMode">Learning preference:</label><br>
+            &nbsp;<input type="checkbox" name="preferenceMode" id="online">
+            <label for="online_learning">Online learning</label><br>
+            &nbsp;<input type="checkbox" name="preferenceMode" id="physical">
+            <label for="physical_learning">Physical learning</label><br>
+            &nbsp;<input type="checkbox" name="preferenceMode" id="hybrid">
+            <label for="hybrid_learning">Hybrid learning</label><br>
+            <label for="add_info">Additional information</label><br>
+            <textarea name="add_info" id="moreInfo" placeholder="Enter you message here"></textarea>
+        </fieldset><br>
+        <button type="submit">Submit</button>
+    </form>
+
+</body>
+
+</html>
+
+
+<!-- Full name    Text input
+Email    Email input
+Phone number    Telephone input
+Date of birth    Date input
+Gender    Radio buttons
+Course    Dropdown
+Learning preferences    Checkboxes
+Additional information    Textarea
+Submit    Button
+
+
+Requirements:
+Associate labels with their inputs.
+Mark required fields using required.
+Use meaningful name attributes.
+Group related information logically.
+Test the form in your browser.
+Challenge: Use <fieldset> and <legend> to group related controls. -->
