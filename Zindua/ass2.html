@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Green Energy Technical Report</title>
+    <style>
+        *{
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+        }
+        html{
+            scroll-behavior: smooth;
+        }
+        header{
+            display: flex;
+            justify-content: space-between;
+            background-color: #b174e9;
+            color: rgb(56, 16, 60);
+            position: sticky;
+            top: 0;
+        }
+        header nav{
+            display: flex;
+            justify-content: space-evenly;
+        }
+        #table-of-contents h2{
+            margin: 10px;
+            color: #643a8c;
+            font-size: 1.2em;
+        }
+        #table-of-contents ol{
+            margin: 0 10px 10px;
+            padding-left: 25px;
+        }
+        #table-of-contents a{
+            color: #643a8c;
+            text-decoration: none;
+        }
+        #table-of-contents a:hover{
+            text-decoration: underline;
+        }
+        header nav a{
+            padding: 5px;
+            margin: 5px;
+            color: inherit;
+            text-decoration: none;
+        }
+        header nav a:hover,
+        header nav a:focus{
+            text-decoration: underline;
+            color: blue;
+        }
+        header h1{
+            font-size: 1.5em;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            border: 1px solid black;
+        }
+        tr{
+            border: 1px solid black;
+            text-align: center;
+        }
+        th,td{
+            padding: 5px;
+            border: none;
+        }
+        #summary{
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-flow: column;
+            background-color: #f2ecec;
+        }
+        .summary-header{
+            font-size: 40px;
+            color: #942cf5;
+            margin: 10px;
+        }
+        .summary-p{
+            font-size: 1.4em;
+            color: #643a8c;
+        }
+        #data{
+            min-height: 50vh;
+        }
+        .data-header{
+            padding: 10px;
+        }
+        .list-header{
+            margin-top: 10px;
+        }
+        ul{
+            margin-left: 10px;
+            padding: 10px;
+        }
+        #contact{
+            min-height: 50vh;
+            background-color: #f2ecec;
+        }
+        .contact-header{
+            padding: 10px;
+        }
+        fieldset{
+            min-height: 49vh;
+            width: 98%;
+            margin: 0 5px 10px;
+        }
+        label{
+            margin: 5px;
+            font-size: 1.2em;
+        }
+        input{
+            width: 40%;
+            height: 20px;
+            margin: 5px;
+        }
+        textarea{
+            margin: 5px;
+        }
+        button{
+            margin: 10px;
+            padding: 2px 6px;
+            font-weight: 600;
+        }
+        footer{
+            bottom: 0;
+            position: fixed;
+            background-color: #b174e9;
+            width: 100%;
+            text-align: center;
+            font-size: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Global Green Energy Report 2026</h1>
+        <nav>
+            <a href="#summary">About</a>
+            <a href="#contact">Contact Us</a>
+            <a href="#data">Comparison</a>
+        </nav>
+    </header>
+    <nav id="table-of-contents" aria-label="Table of contents">
+        <h2>Table of Contents</h2>
+        <ol>
+            <li><a href="#summary">Executive Summary</a></li>
+            <li><a href="#data">Comparison Data and Key Takeaways</a></li>
+            <li><a href="#contact">Contact Us</a></li>
+        </ol>
+    </nav>
+    <main>
+        <article>
+            <section id="summary">
+                <h2 class="summary-header">Executive Summary</h2>
+                <p class="summary-p">Welcome to the 2026 global green energy report. The report covers solar, wind and geothermal energy in the most simplicit way</p>
+            </section>
+
+            <section id="data">
+                <h2 class="data-header">Comparison Data</h2>
+                <table>
+                    <caption><i>Comparison of different energy sources in the efficieny and growth fields</i></caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">ENERGY SOURCE</th>
+                            <th scope="col">EFFICIENCY</th>
+                            <th scope="col">GROWTH (2025)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Solar</td>
+                            <td>22%</td>
+                            <td>+15%</td>
+                        </tr>
+                        <tr>
+                            <td>Wind</td>
+                            <td>45%</td>
+                            <td>+10%</td>
+                        </tr>
+                        <tr>
+                            <td>Geothermal</td>
+                            <td>90%</td>
+                            <td>+2%</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <h2 class="list-header">Key Takeaways</h2>
+                <ul>
+                    <li>Solar PV contributed more than one-quarter of global enegy demand growth</li>
+                    <li>Low-emission energy sources accounted for nearly 60% of energy demand growth.</li>
+                    <li>Global electricity  demand continues to rise rapidly</li>
+                    <li>Renewable energy deployment reached record levels.</li>
+                    <li>Electric vehicles are helping reduce growth in oil-demand</li>
+                </ul>
+            </section>
+            <section id="contact">
+                <h2 class="contact-header">Have something to tell us?</h2>
+                <fieldset>
+                    <legend>Contact Us</legend>
+                    <form>
+                        <label for="fullName">Full name:</label><br>
+                        <input type="text" name="fullName" id="fullName"><br>
+                        <label for="email">Email:</label><br>
+                        <input type="email" name="email" id="email"><br>
+                        <label for="message">Message:</label><br>
+                        <textarea name="message" id="message" placeholder="Type your message here..." cols="25"></textarea><br>
+                        <button type="submit">Submit</button>
+                        <p>Reach us through email: <a href="mailto:reports@greenenergy.org">Email the Author</a></p>
+                    </form>
+                </fieldset>
+            </section>
+        </article>
+    </main>
+    <footer>
+        <p>Global Green Energy Report 2026</p>
+    </footer>
+
+</body>
+
+</html>
