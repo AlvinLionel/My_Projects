@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CineFlow Creator Registration</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+
+<body class="min-h-screen bg-slate-950 text-slate-100 font-sans">
+
+    <header class="text-center py-10 px-4">
+        <h1 class="text-3xl md:text-4xl font-bold text-violet-400 mb-3">Join the CineFlow Creator Program</h1>
+        <p class="text-slate-400">Use your creativity to build your audience and grow your brand</p>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 pb-12">
+        <section id="promo" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-8 shadow-xl">
+            <h2 class="text-2xl font-semibold text-violet-300 mb-4">Welcome Video</h2>
+            <video class="w-full rounded-xl" controls>
+                <source src="assets/wc.mp4" type="video/mp4">Your browser does not support the video element
+            </video>
+        </section>
+
+        <section id="registration" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 md:p-8 shadow-xl">
+            <h2 class="text-2xl font-semibold text-violet-300 mb-2">Creator Registration</h2>
+            <form action="/submit-registration" method="POST" enctype="multipart/form-data">
+                <fieldset class="border border-slate-700  rounded-xl p-5 mb-8">
+                    <legend class="text-lg font-semibold text-violet-300 px-2">Personal Information</legend>
+                    <div class="mb-5">
+                        <label for="name" class="block text-sm font-medium text-slate-300 mb-2">Full Name</label><br>
+                        <input type="text" name="name" id="name" placeholder="eg, John Doe"
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                            required><br>
+                    </div>
+                    <div class="mb-5">
+                        <label for="email" class="block text-sm font-medium text-slate-300 mb-2">Email</label><br>
+                        <input type="email" name="email" id="email" placeholder="eg, john@example.com"
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                            required><br>
+                    </div>
+                    <div class="mb-5">
+                        <label for="password" class="block text-sm font-medium text-slate-300 mb-2">Password</label><br>
+                        <input type="password" name="password" id="pasword" minlength="8"
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                            required><br>
+                    </div>
+                    <div class="mb-5">
+                        <label for="dob" class="block text-sm font-medium text-slate-300 mb-2">Date of Birth</label><br>
+                        <input type="date" name="dob" id="dob"
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                            required><br>
+                        <p class="text-xs text-slate-500 mt-2">
+                            You must be at least 18 years old.
+                        </p>
+                    </div>
+                    <div class="mb-5">
+                        <label for="profile" class="block text-sm font-medium text-slate-300 mb-2">Upload a profile
+                            picture</label><br>
+                        <input type="file" name="profile" id="profile"
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-300 file:bg-violet-600 file:text-white file:border-0 file:rounded-md file:px-4 file:py-2 file:mr-4 file:cursor-pointer hover:file:bg-violet-500"
+                            accept=".jpg,.png,image/jpeg,image/png"><br>
+                    </div>
+                </fieldset>
+
+                <fieldset class="border border-slate-700 rounded-xl p-5 mb-8">
+                    <legend class="text-lg font-semibold text-violet-300 px-2">Channel Details</legend>
+                    <div class="mb-6">
+                        <label for="username" class="block text-sm font-medium text-slate-300 mb-2">Username</label><br>
+                        <input type="text" name="username" id="username"
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                            placeholder="eg, Johndoe" pattern="[A-Za-z0-9]+"><br>
+                    </div>
+                    <div class="mb-7">
+                        <label for="volume" class="block text-sm font-medium text-slate-300 mb-3">Expected Weekly Upload
+                            Volume</label><br>
+                        <input type="range" name="volume" id="volume" class="w-full accent-violet-500 cursor-pointer"
+                            min="0" max="10" value="5"><br>
+                        <div class="flex justify-between text-sm text-slate-500 mt-2">
+                            <span>0 Videos</span>
+                            <output id="volumeOut" class="text-violet-400 font-semibold">5 videos</output>
+                            <span>10 Videos</span>
+                        </div>
+                    </div>
+                    <div class="mb-7">
+                        <label for="genre" class="block text-sm font-medium text-slate-300 mb-3">Select your content
+                            Genre</label><br>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
+                                <input type="checkbox" name="genre[]" id="tech" value="Tech" class="accent-violet-500 w-4 h-4">
+                                Tech
+                            </label>
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
+                                <input type="checkbox" name="genre[]" id="lifestyle" value="Lifestyle" class="accent-violet-500 w-4 h-4">
+                                Lifestyle
+                            </label>
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
+                                <input type="checkbox" name="genre[]" id="gaming" value="Gaming" class="accent-violet-500 w-4 h-4">
+                                Gaming
+                            </label>
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
+                                <input type="checkbox" name="genre[]" id="cooking" value="Cooking" class="accent-violet-500 w-4 h-4">
+                                Cooking
+                            </label>
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer">
+                                <input type="checkbox" name="genre[]" id="travel" value="Travel" class="accent-violet-500 w-4 h-4">
+                                Travel
+                            </label></div></div>
+                            <p class="text-sm text-slate-400 mb-4">Need help? listen to this: </p>
+                            <audio controls class="w-full">
+                                <source src="assets/sound-of-waves-marine-drive-mumbai.mp3" type="audio/mp3">
+                                Your browser does not support audio playback
+                            </audio><br>
+                            <i>This is a placeholder audio</i><br>
+                </fieldset>
+
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button type="submit" class="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 cursor-pointer shadow-lg shadow-violet-900/20">Register Account</button>
+                    <button type="reset" class="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 cursor-pointer shadow-lg shadow-violet-900/20">Clear Form</button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <script>
+        const dob = document.getElementById("dob");
+
+        function setMaxAge() {
+            const today = new Date();
+            const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+
+            dob.max = [maxDate.getFullYear(), String(maxDate.getMonth() + 1).padStart(2, "0"), String(maxDate.getDate()).padStart(2, "0")].join("-");
+        }
+        setMaxAge();
+
+        const form = document.querySelector("form");
+        const genres = document.querySelectorAll('input[name="genre[]"]');
+
+        function validateGenres() {
+            const selected = [...genre].some(genre => genre.checked);
+
+            genres[0].setCustomValidity(selected ? "" : "Please select at least one genre");
+        }
+        genres.forEach(genre => genre.addEventListener("change", validateGenres));
+
+        const volume = document.getElementById("volume");
+        const volumeOut = document.getElementById("volumeOut");
+
+        volume.addEventListener("input", function () {
+            volumeOut.textContent = volume.value + "videos";
+        })
+        form.addEventListener("submit", (event) => {
+            validateGenres();
+            if (dob.value && dob.value > dob.max) {
+                dob.setCustomValidity("You must be at least 18 years old");
+            } else {
+                dob.setCustomValidity("");
+            }
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                form.reportValidity();
+            }
+        })
+        form.addEventListener("reset", function () {
+            setTimeout(() => {
+                dob.setCustomValidity("");
+                genres.forEach(genre => {
+                    genre.setCustomValidity("");
+                })
+                volumeOut.textContent = "5 videos";
+            }, 0);
+        })
+    </script>
+
+</body>
+
+</html>
